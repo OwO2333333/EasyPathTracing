@@ -1,6 +1,7 @@
 #include <iostream>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <iomanip>
+#include <memory>
 #include <vector>
 
 #include "path_tracing.h"
@@ -202,6 +203,10 @@ int main() {
     cube.normalMatrix = glm::mat4(1.0f);
 
 
+    // auto modelServer = PathTracing::ModelServer();
+    // auto cube = modelServer.GetDefaultCube();
+
+
 
 
 
@@ -214,8 +219,8 @@ int main() {
     glm::mat4 viewMatrix = glm::lookAt(camPos, lookTarget, glm::vec3(0,1,0));
     glm::mat4 camWorld = glm::inverse(viewMatrix);
     camera.modelMatrix = camWorld;
-    camera.width = 4096;
-    camera.height = 4096;
+    camera.width = 512;
+    camera.height = 512;
     camera.aspect = 1.0f;
     camera.fov = 40.0f;
     camera.near = 0.01f;
@@ -332,31 +337,15 @@ int main() {
     lights.emplace_back(light);
 
 
-
     const char fileName[] = "Output.hdr";
-    auto data = PathTracing::RenderServer::PathTracing(camera, aabbs, lights);
+    auto renderServer = PathTracing::RenderServer(12, 12, 0.75f);
+    auto data = renderServer.PathTracing(camera, aabbs, lights);
     int w = camera.width;
     int h = camera.height;
     int comp = 3;
     PrintPicture(fileName, w, h, comp, data->data(), w * comp, PrintType::HDR);
     delete data;
 
-
-    // const char fileName[] = "Output.png";
-    // int w = 256;
-    // int h = 256;
-    // int comp = 3;
-    // std::vector<uint8_t> data(w * h * comp, 0);
-    // for (int i = 0; i < h; ++i) {
-    //     for (int j = 0; j < w; ++j) {
-    //         int idx = (w * i + j) * comp;
-    //         data[idx + 0] = 255;
-    //         data[idx + 1] = 255;
-    //         data[idx + 2] = 255;
-    //     }
-    // }
-    //
-    // PrintPicture(fileName, w, h, comp, data.data(), w * comp, PrintType::PNG);
 
     return 0;
 }

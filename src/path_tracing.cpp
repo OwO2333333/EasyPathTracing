@@ -111,6 +111,12 @@ namespace PathTracing {
     }
 
 
+
+    RenderServer::RenderServer(int maxDepth, int sampleCountPerPixel, float p_rr) : MAX_DEPTH(maxDepth), SAMPLE_COUNT_PER_PIXEL(sampleCountPerPixel), P_RR(p_rr) {
+
+    }
+
+
     std::vector<float>* RenderServer::PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, std::vector<AreaLight>& lights) {
         auto data = new std::vector<float>();
         auto startTime = std::chrono::steady_clock::now();
@@ -118,7 +124,7 @@ namespace PathTracing {
         auto processed = 0;
         for ( int y = 0 ; y < camera.height; ++y) {
             for ( int x = 0 ; x < camera.width; ++x) {
-                float a = 1.0f / SAMPLE_COUNT_PER_PIXEL;
+                float a = 1.0f / static_cast<float>(SAMPLE_COUNT_PER_PIXEL);
                 auto pixel = glm::vec3(0.0f);
                 for (int i = 0; i < SAMPLE_COUNT_PER_PIXEL; ++i) {
                     auto randomX = dist(gen);
@@ -307,7 +313,6 @@ namespace PathTracing {
         if (depth >= MAX_DEPTH) return glm::vec3(0.0f);
         if (!hitMessage.triangle) return glm::vec3(0.0f);
 
-        const float P_RR = 0.75f; // 光线继续传播的概率
         const float kEps = 1e-4f;
 
 
@@ -550,6 +555,161 @@ namespace PathTracing {
 
         return glm::normalize(localDir.x * u + localDir.y * v + localDir.z * w);
     }
+
+
+    std::unique_ptr<Object> ModelServer::GetDefaultCube() {
+        auto triangles = std::vector<Triangle>();
+        auto brdf = BRDF {
+            .albedo = glm::vec3(1.0f, 1.0f, 1.0f),
+            .roughness = 1.0f,
+            .metallicity = 0.0f
+        };
+        // ==================== 前面 z = -0.5，法线 (0,0,-1) ====================
+        Triangle triFront0 = {};
+        triFront0.brdf = brdf;
+        triFront0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triFront0.t1 = glm::vec3(-0.5f,  0.5f, -0.5f);
+        triFront0.t2 = glm::vec3( 0.5f,  0.5f, -0.5f);
+        triFront0.n0 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triFront0.n1 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triFront0.n2 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triangles.push_back(triFront0);
+
+        Triangle triFront1 = {};
+        triFront1.brdf = brdf;
+        triFront1.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triFront1.t1 = glm::vec3( 0.5f,  0.5f, -0.5f);
+        triFront1.t2 = glm::vec3( 0.5f, -0.5f, -0.5f);
+        triFront1.n0 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triFront1.n1 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triFront1.n2 = glm::vec3(0.0f, 0.0f, -1.0f);
+        triangles.push_back(triFront1);
+
+        // ==================== 后面 z = +0.5，法线 (0,0,+1) ====================
+        Triangle triBack0 = {};
+        triBack0.brdf = brdf;
+        triBack0.t0 = glm::vec3(-0.5f, -0.5f,  0.5f);
+        triBack0.t1 = glm::vec3( 0.5f, -0.5f,  0.5f);
+        triBack0.t2 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triBack0.n0 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triBack0.n1 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triBack0.n2 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triangles.push_back(triBack0);
+
+        Triangle triBack1 = {};
+        triBack1.brdf = brdf;
+        triBack1.t0 = glm::vec3(-0.5f, -0.5f,  0.5f);
+        triBack1.t1 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triBack1.t2 = glm::vec3(-0.5f,  0.5f,  0.5f);
+        triBack1.n0 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triBack1.n1 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triBack1.n2 = glm::vec3(0.0f, 0.0f, 1.0f);
+        triangles.push_back(triBack1);
+
+        // ==================== 右面 x = +0.5，法线 (+1,0,0) ====================
+        Triangle triRight0 = {};
+        triRight0.brdf = brdf;
+        triRight0.t0 = glm::vec3( 0.5f, -0.5f, -0.5f);
+        triRight0.t1 = glm::vec3( 0.5f,  0.5f, -0.5f);
+        triRight0.t2 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triRight0.n0 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triRight0.n1 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triRight0.n2 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triangles.push_back(triRight0);
+
+        Triangle triRight1 = {};
+        triRight1.brdf = brdf;
+        triRight1.t0 = glm::vec3( 0.5f, -0.5f, -0.5f);
+        triRight1.t1 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triRight1.t2 = glm::vec3( 0.5f, -0.5f,  0.5f);
+        triRight1.n0 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triRight1.n1 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triRight1.n2 = glm::vec3(1.0f, 0.0f, 0.0f);
+        triangles.push_back(triRight1);
+
+        // ==================== 左面 x = -0.5，法线 (-1,0,0) ====================
+        Triangle triLeft0 = {};
+        triLeft0.brdf = brdf;
+        triLeft0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triLeft0.t1 = glm::vec3(-0.5f, -0.5f,  0.5f);
+        triLeft0.t2 = glm::vec3(-0.5f,  0.5f,  0.5f);
+        triLeft0.n0 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triLeft0.n1 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triLeft0.n2 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triangles.push_back(triLeft0);
+
+        Triangle triLeft1 = {};
+        triLeft1.brdf = brdf;
+        triLeft1.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triLeft1.t1 = glm::vec3(-0.5f,  0.5f,  0.5f);
+        triLeft1.t2 = glm::vec3(-0.5f,  0.5f, -0.5f);
+        triLeft1.n0 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triLeft1.n1 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triLeft1.n2 = glm::vec3(-1.0f, 0.0f, 0.0f);
+        triangles.push_back(triLeft1);
+
+
+        // ==================== 顶面 y = +0.5，法线 (0,+1,0) ====================
+        Triangle triTop0 = {};
+        triTop0.brdf = brdf;
+        triTop0.t0 = glm::vec3(-0.5f,  0.5f, -0.5f);
+        triTop0.t1 = glm::vec3(-0.5f,  0.5f,  0.5f);
+        triTop0.t2 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triTop0.n0 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triTop0.n1 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triTop0.n2 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triangles.push_back(triTop0);
+
+        Triangle triTop1 = {};
+        triTop1.brdf = brdf;
+        triTop1.t0 = glm::vec3(-0.5f,  0.5f, -0.5f);
+        triTop1.t1 = glm::vec3( 0.5f,  0.5f,  0.5f);
+        triTop1.t2 = glm::vec3( 0.5f,  0.5f, -0.5f);
+        triTop1.n0 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triTop1.n1 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triTop1.n2 = glm::vec3(0.0f, 1.0f, 0.0f);
+        triangles.push_back(triTop1);
+
+
+        // ==================== 底面 y = -0.5，法线 (0,-1,0) ====================
+        Triangle triBottom0 = {};
+        triBottom0.brdf = brdf;
+        triBottom0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triBottom0.t1 = glm::vec3( 0.5f, -0.5f, -0.5f);
+        triBottom0.t2 = glm::vec3( 0.5f, -0.5f,  0.5f);
+        triBottom0.n0 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triBottom0.n1 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triBottom0.n2 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triangles.push_back(triBottom0);
+
+        Triangle triBottom1 = {};
+        triBottom1.brdf = brdf;
+        triBottom1.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
+        triBottom1.t1 = glm::vec3( 0.5f, -0.5f,  0.5f);
+        triBottom1.t2 = glm::vec3(-0.5f, -0.5f,  0.5f);
+        triBottom1.n0 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triBottom1.n1 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triBottom1.n2 = glm::vec3(0.0f, -1.0f, 0.0f);
+        triangles.push_back(triBottom1);
+
+
+
+
+
+
+        auto cube = new Object();
+        cube->objectType = ObjectType::TriangleMesh;
+        cube->triangles = triangles;
+        cube->modelMatrix = glm::mat4(1.0f);
+        cube->invModelMatrix = glm::mat4(1.0f);
+        cube->normalMatrix = glm::mat4(1.0f);
+
+        return std::unique_ptr<Object>(cube);
+    }
+
+
+
+
 
 
 }

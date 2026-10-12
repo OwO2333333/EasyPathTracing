@@ -4,6 +4,7 @@
 
 #ifndef PATHTRACING_PATH_TRACING_H
 #define PATHTRACING_PATH_TRACING_H
+#include <memory>
 #include <random>
 #include <vector>
 #include <glm/glm.hpp>
@@ -119,16 +120,20 @@ namespace PathTracing {
 
     class RenderServer {
         public:
-        static const int MAX_DEPTH = 50;
-        static const int SAMPLE_COUNT_PER_PIXEL = 15;
-        static std::vector<float>* PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, std::vector<AreaLight>& lights);
+        RenderServer(int maxDepth, int sampleCountPerPixel, float p_rr);
+        RenderServer() = default;
+
+        const int MAX_DEPTH = 12;
+        const int SAMPLE_COUNT_PER_PIXEL = 1024;
+        const float P_RR = 0.75f;
+        std::vector<float>* PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, std::vector<AreaLight>& lights);
 
         private:
         static Ray CastRay(const Camera& camera, int x, int y, float randomX, float randomY);
         static HitMessage RayTest(const Ray& ray, const std::vector<AABB>& aabbs);
         static HitMessage RayTest(const Ray& ray, const AABB& aabb);
         static HitMessage RayTest(const Ray& ray, const Object& object);
-        static glm::vec3 Shade(const HitMessage& hitMessage, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights, int depth);
+        glm::vec3 Shade(const HitMessage& hitMessage, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights, int depth);
         static Ray CastRay(const glm::vec3& origin, const glm::vec3& direction);
         static bool IsIntersectionWithAABB(const Ray& ray, const AABB& aabb);
         static bool IsIntersectionWithTriangle(const Ray& ray, const glm::mat4& modelMatrix, const Triangle& tri, float& t, float& b1, float& b2);
@@ -163,7 +168,13 @@ namespace PathTracing {
 
     };
 
+    class ModelServer {
+        public:
+            static std::unique_ptr<Object> GetDefaultCube();
 
+
+
+    };
 
 
 
