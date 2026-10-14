@@ -85,7 +85,7 @@ namespace PathTracing {
 
     class Triangle {
         public:
-        // Objå±€éƒ¨ç©ºé—´æ•°æ®
+        // Obj¾Ö²¿¿Õ¼äÊı¾İ
         glm::vec3 t0, t1, t2;
         glm::vec3 n0, n1, n2;
         BRDF brdf;
@@ -109,16 +109,16 @@ namespace PathTracing {
 
     class AreaLight : public Object {
     public:
-        glm::vec3 emission{glm::vec3(1.0f)};   // å‘å…‰é¢è¾äº®åº¦ L_e
+        glm::vec3 emission{glm::vec3(1.0f)};   // ·¢¹âÃæ·øÁÁ¶È L_e
 
         explicit AreaLight(const glm::vec3& emission = glm::vec3(1.0f)) : emission(emission) {
             objectType = ObjectType::AreaLight;
-            BuildQuad(); // å±€éƒ¨ XZ å¹³é¢ä¸Šçš„å•ä½æ–¹å½¢ï¼Œæ³•çº¿æœä¸‹
+            BuildQuad(); // ¾Ö²¿ XZ Æ½ÃæÉÏµÄµ¥Î»·½ĞÎ£¬·¨Ïß³¯ÏÂ
         }
 
-        glm::vec3 GetEmissiveNormal() const;                       // ä¸–ç•Œç©ºé—´å‘å…‰é¢æ³•çº¿
-        float     GetWorldArea() const;                            // ä¸–ç•Œç©ºé—´é¢ç§¯
-        glm::vec3 GetPointOnEmissiveFace(float u, float v) const;  // å‡åŒ€é‡‡æ ·ä¸€ç‚¹
+        glm::vec3 GetEmissiveNormal() const;                       // ÊÀ½ç¿Õ¼ä·¢¹âÃæ·¨Ïß
+        float     GetWorldArea() const;                            // ÊÀ½ç¿Õ¼äÃæ»ı
+        glm::vec3 GetPointOnEmissiveFace(float u, float v) const;  // ¾ùÔÈ²ÉÑùÒ»µã
 
         glm::vec3 GetEmission() const override { return emission; }
 
@@ -138,7 +138,7 @@ namespace PathTracing {
         Camera(const glm::mat4 &modelMatrix, const int width, const int height, const float fov, const float near, const float far)
             : modelMatrix(modelMatrix), width(width), height(height), fov(fov), near(near), far(far) {
             if (height <= 0 && width <= 0) {
-                std::cout << "ERROR: width widthæ•°æ®ä¸åˆæ³•" << std::endl;
+                std::cout << "ERROR: width widthÊı¾İ²»ºÏ·¨" << std::endl;
                 this->width = 256;
                 this->height = 256;
             }
@@ -153,7 +153,7 @@ namespace PathTracing {
         public:
         std::vector<std::unique_ptr<Object>> objects;
         std::vector<AABB> aabbs;
-        std::vector<AreaLight> lights; // æ³¨æ„è¿™é‡Œlightåœ¨aabbså’Œlightsæ˜¯ä¸¤ä»½ç‹¬ç«‹æ•°æ®
+        std::vector<AreaLight> lights; // ×¢ÒâÕâÀïlightÔÚaabbsºÍlightsÊÇÁ½·İ¶ÀÁ¢Êı¾İ
     };
 
     class RenderServer {
