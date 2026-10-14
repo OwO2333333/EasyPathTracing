@@ -4,6 +4,7 @@
 
 #ifndef PATHTRACING_PATH_TRACING_H
 #define PATHTRACING_PATH_TRACING_H
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <random>
@@ -11,6 +12,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <atomic>
+#include <iostream>
 
 namespace PathTracing {
     class Triangle;
@@ -126,17 +128,32 @@ namespace PathTracing {
 
     class Camera {
         public:
-        glm::mat4 modelMatrix;
-        int width, height;
-        float fov;
-        float aspect;
-        float near;
-        float far;
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        int width = 256;
+        int height = 256;
+        float fov = 40;
+        float aspect = static_cast<float>(width) / height;
+        float near = 0.01f;
+        float far = 1000.0f;
+        Camera(const glm::mat4 &modelMatrix, const int width, const int height, const float fov, const float near, const float far)
+            : modelMatrix(modelMatrix), width(width), height(height), fov(fov), near(near), far(far) {
+            if (height <= 0 && width <= 0) {
+                std::cout << "ERROR: width width数据不合法" << std::endl;
+                this->width = 256;
+                this->height = 256;
+            }
+            this->aspect = static_cast<float>(width) / height;
+        }
 
         void GetBasis(glm::vec3& right, glm::vec3& up, glm::vec3& backward) const;
-
         glm::vec3 GetWorldPos() const;
+    };
 
+    class Scene {
+        public:
+        std::vector<std::unique_ptr<Object>> objects;
+        std::vector<AABB> aabbs;
+        std::vector<AreaLight> lights;
     };
 
     class RenderServer {
@@ -147,16 +164,12 @@ namespace PathTracing {
         const int SPP;
         const float P_RR;
         static constexpr float kRayEpsilon = 1e-4f;
-        static void PathTracing(const Camera& camera,
-        const std::vector<AABB>& aabbs,
-        const std::vector<AreaLight>& lights,
-        std::string fileName,
-        PrintType printType,
-        unsigned int maxThreadsAllowed);
-        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights);
-        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights, int startY, int endY);
+        static void PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights,std::string fileName,PrintType printType, unsigned int maxThreadsAllowed);
+
 
         private:
+        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights);
+        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights, int startY, int endY);
         static Ray CastRay(const Camera& camera, int x, int y, float randomX, float randomY);
         static HitMessage RayTest(const Ray& ray, const std::vector<AABB>& aabbs);
         static HitMessage RayTest(const Ray& ray, const AABB& aabb);
@@ -198,6 +211,7 @@ namespace PathTracing {
 
     class ModelServer {
         public:
+            static std::unique_ptr<Scene> GetCornellBox();
             static std::unique_ptr<Object> GetDefaultCube();
             static std::unique_ptr<std::vector<Triangle>> GetAreaLightSquad();
     };

@@ -830,7 +830,130 @@ namespace PathTracing {
         return result;
     }
 
+    std::unique_ptr<Scene> ModelServer::GetCornellBox() {
 
+        auto cube = ModelServer::GetDefaultCube();
+        auto aabbs = std::make_unique<std::vector<AABB>>();
+        auto lights = std::make_unique<std::vector<AreaLight>>();
+        auto scene = std::make_unique<Scene>();
+
+        auto modelMatrix = glm::mat4(1.0f);
+        auto floor_wall = std::make_unique<Object>(*cube);
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.775f, -0.005f, 2.775f));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(5.55f, 0.01f, 5.55f));
+        floor_wall->modelMatrix = modelMatrix;
+        floor_wall->invModelMatrix = glm::inverse(modelMatrix);
+        floor_wall->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : floor_wall->triangles) {
+            tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
+        }
+        aabbs->emplace_back(*floor_wall);
+        scene->objects.push_back(std::move(floor_wall));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto ceil_wall = std::make_unique<Object>(*cube);;
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.775, 5.555, 2.775));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(5.55, 0.01, 5.55));
+        ceil_wall->modelMatrix = modelMatrix;
+        ceil_wall->invModelMatrix = glm::inverse(modelMatrix);
+        ceil_wall->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : ceil_wall->triangles) {
+            tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
+        }
+        aabbs->emplace_back(*ceil_wall);
+        scene->objects.push_back(std::move(ceil_wall));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto back_wall = std::make_unique<Object>(*cube);
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.775, 2.775, 5.555));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(5.55, 5.55, 0.01));
+        back_wall->modelMatrix = modelMatrix;
+        back_wall->invModelMatrix = glm::inverse(modelMatrix);
+        back_wall->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : back_wall->triangles) {
+            tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
+        }
+        aabbs->emplace_back(*back_wall);
+        scene->objects.push_back(std::move(back_wall));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto left_wall = std::make_unique<Object>(*cube);;
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(-0.005, 2.775, 2.775));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.01, 5.55, 5.55));
+        left_wall->modelMatrix = modelMatrix;
+        left_wall->invModelMatrix = glm::inverse(modelMatrix);
+        left_wall->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : left_wall->triangles) {
+            tri.brdf.albedo = glm::vec3(0.14, 0.45, 0.091);
+        }
+        aabbs->emplace_back(*left_wall);
+        scene->objects.push_back(std::move(left_wall));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto right_wall = std::make_unique<Object>(*cube);;
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(5.555, 2.775, 2.775));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(0.01, 5.55, 5.55));
+        right_wall->modelMatrix = modelMatrix;
+        right_wall->invModelMatrix = glm::inverse(modelMatrix);
+        right_wall->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : right_wall->triangles) {
+            tri.brdf.albedo = glm::vec3(0.63, 0.065, 0.05);
+        }
+        aabbs->emplace_back(*right_wall);
+        scene->objects.push_back(std::move(right_wall));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto big_cube = std::make_unique<Object>(*cube);;
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(3.475f, 1.65f, 3.775f));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(18.0f), glm::vec3(0, 1, 0));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(1.65f, 3.30f, 1.65f));
+        big_cube->modelMatrix = modelMatrix;
+        big_cube->invModelMatrix = glm::inverse(modelMatrix);
+        big_cube->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : big_cube->triangles) {
+            tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
+        }
+        aabbs->emplace_back(*big_cube);
+        scene->objects.push_back(std::move(big_cube));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        auto small_cube = std::make_unique<Object>(*cube);;
+        modelMatrix = glm::translate(modelMatrix, glm::vec3(2.125f, 0.825f, 1.475f));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(-18.0f), glm::vec3(0, 1, 0));
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(1.65f, 1.65f, 1.65f));
+        small_cube->modelMatrix = modelMatrix;
+        small_cube->invModelMatrix = glm::inverse(modelMatrix);
+        small_cube->normalMatrix = glm::transpose(glm::inverse(modelMatrix));
+        for (Triangle& tri : small_cube->triangles) {
+            tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
+        }
+        aabbs->emplace_back(*small_cube);
+        scene->objects.push_back(std::move(small_cube));
+
+
+        modelMatrix = glm::mat4(1.0f);
+        // 光源：单面发光（两个三角形），局部 XZ 平面单位方形，法线朝下
+        auto light = std::make_unique<AreaLight>(glm::vec3(1, 0.9, 0.7) * 40.0f);
+        modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(2.78f, 5.549f, 2.795f))
+                                    * glm::scale(glm::mat4(1.0f), glm::vec3(1.30f, 1.0f, 1.05f));
+        light->modelMatrix = modelMatrix;
+        light->invModelMatrix = glm::inverse(modelMatrix);
+        light->normalMatrix = glm::mat3(glm::transpose(glm::inverse(modelMatrix)));
+        lights->emplace_back(*light);
+        aabbs->emplace_back(lights->back());
+        scene->objects.push_back(std::move(light));
+
+
+        scene->aabbs = *aabbs;
+        scene->lights = *lights;
+        return scene;
+    }
     std::unique_ptr<Object> ModelServer::GetDefaultCube() {
         auto triangles = std::vector<Triangle>();
         auto brdf = BRDF {
@@ -980,7 +1103,6 @@ namespace PathTracing {
 
         return std::unique_ptr<Object>(cube);
     }
-
     std::unique_ptr<std::vector<Triangle>> ModelServer::GetAreaLightSquad() {
         const glm::vec3 n(0.0f, -1.0f, 0.0f);
         const BRDF brdf{ glm::vec3(1.0f), 1.0f, 0.0f };
