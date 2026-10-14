@@ -1,53 +1,6 @@
 #include <iostream>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <iomanip>
-#include <memory>
 #include <vector>
-
 #include "path_tracing.h"
-#include "stb_image_write.h"
-
-enum class PrintType {
-    HDR,
-    PNG,
-};
-
-void PrintPicture(char const* filename, int w, int h, int comp, const void* data, int stride_in_bytes, PrintType type)
-{
-    int ok = 0;
-    if (type == PrintType::PNG)
-    {
-        // PNG: data 是 uint8_t 字节数组，stride = 每行字节数
-        ok = stbi_write_png(
-            filename,
-            w,
-            h,
-            comp,
-            data,
-            stride_in_bytes
-        );
-    }
-    else if (type == PrintType::HDR)
-    {
-        // HDR: data 是 float数组（线性HDR，每个通道float）
-        ok = stbi_write_hdr(
-            filename,
-            w,
-            h,
-            comp,
-            static_cast<const float*>(data)
-        );
-    }
-
-    if (ok)
-    {
-        std::cout << "Saved image: " << filename << "\n";
-    }
-    else
-    {
-        std::cerr << "Failed to save image: " << filename << "\n";
-    }
-}
 
 
 
@@ -219,8 +172,8 @@ int main() {
     glm::mat4 viewMatrix = glm::lookAt(camPos, lookTarget, glm::vec3(0,1,0));
     glm::mat4 camWorld = glm::inverse(viewMatrix);
     camera.modelMatrix = camWorld;
-    camera.width = 512;
-    camera.height = 512;
+    camera.width = 256;
+    camera.height = 256;
     camera.aspect = 1.0f;
     camera.fov = 40.0f;
     camera.near = 0.01f;
@@ -231,7 +184,7 @@ int main() {
     auto aabbs = std::vector<PathTracing::AABB>();
     auto lights = std::vector<PathTracing::AreaLight>();
 
-
+    // TODO: 把数据改到堆里 优化camera方便创建
 
 
     auto modelMatrix = glm::mat4(1.0f);
@@ -242,7 +195,7 @@ int main() {
     floor_wall.invModelMatrix = glm::inverse(modelMatrix);
     floor_wall.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : floor_wall.triangles) {
-        tri.brdf.albedo = glm::vec3(0.73f);
+        tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
     }
     aabbs.emplace_back(floor_wall);
 
@@ -254,7 +207,7 @@ int main() {
     ceil_wall.invModelMatrix = glm::inverse(modelMatrix);
     ceil_wall.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : ceil_wall.triangles) {
-        tri.brdf.albedo = glm::vec3(0.73f);
+        tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
     }
     aabbs.emplace_back(ceil_wall);
 
@@ -266,7 +219,7 @@ int main() {
     back_wall.invModelMatrix = glm::inverse(modelMatrix);
     back_wall.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : back_wall.triangles) {
-        tri.brdf.albedo = glm::vec3(0.73f);
+        tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
     }
     aabbs.emplace_back(back_wall);
 
@@ -278,7 +231,7 @@ int main() {
     left_wall.invModelMatrix = glm::inverse(modelMatrix);
     left_wall.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : left_wall.triangles) {
-        tri.brdf.albedo = glm::vec3(0.12, 0.45, 0.15);
+        tri.brdf.albedo = glm::vec3(0.14, 0.45, 0.091);
     }
     aabbs.emplace_back(left_wall);
 
@@ -290,20 +243,20 @@ int main() {
     right_wall.invModelMatrix = glm::inverse(modelMatrix);
     right_wall.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : right_wall.triangles) {
-        tri.brdf.albedo = glm::vec3(0.65, 0.05, 0.05);
+        tri.brdf.albedo = glm::vec3(0.63, 0.065, 0.05);
     }
     aabbs.emplace_back(right_wall);
 
     modelMatrix = glm::mat4(1.0f);
     auto big_cube = cube;
     modelMatrix = glm::translate(modelMatrix, glm::vec3(3.475f, 1.65f, 3.775f));
-    modelMatrix = glm::rotate(modelMatrix, glm::radians(-18.0f), glm::vec3(0, 1, 0));
+    modelMatrix = glm::rotate(modelMatrix, glm::radians(18.0f), glm::vec3(0, 1, 0));
     modelMatrix = glm::scale(modelMatrix, glm::vec3(1.65f, 3.30f, 1.65f));
     big_cube.modelMatrix = modelMatrix;
     big_cube.invModelMatrix = glm::inverse(modelMatrix);
     big_cube.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : big_cube.triangles) {
-        tri.brdf.albedo = glm::vec3(0.73f);
+        tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
     }
     aabbs.emplace_back(big_cube);
 
@@ -316,36 +269,23 @@ int main() {
     small_cube.invModelMatrix = glm::inverse(modelMatrix);
     small_cube.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
     for (PathTracing::Triangle& tri : small_cube.triangles) {
-        tri.brdf.albedo = glm::vec3(0.73f);
+        tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
     }
     aabbs.emplace_back(small_cube);
 
     modelMatrix = glm::mat4(1.0f);
-    auto light = PathTracing::AreaLight{15.0f, 1.30f, 1.05f};
-    light.triangles = cube.triangles;
-    light.objectType = PathTracing::ObjectType::AreaLight;
+    // 光源：单面发光（两个三角形），局部 XZ 平面单位方形，法线朝下
+    auto light = PathTracing::AreaLight(glm::vec3(1, 0.9, 0.7) * 40.0f);
+    modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(2.78f, 5.549f, 2.795f))
+                                * glm::scale(glm::mat4(1.0f), glm::vec3(1.30f, 1.0f, 1.05f));
     light.modelMatrix = modelMatrix;
     light.invModelMatrix = glm::inverse(modelMatrix);
-    light.normalMatrix = glm::transpose(glm::inverse(modelMatrix));
-    modelMatrix = glm::translate(modelMatrix, glm::vec3(2.78, 5.48, 2.795));
-    modelMatrix = glm::scale(modelMatrix, glm::vec3	(1.30, 0.01, 1.05));
-    light.modelMatrix = modelMatrix;
-    for (PathTracing::Triangle& tri : light.triangles) {
-        tri.brdf.albedo = glm::vec3(1.0f, 1.0f, 1.0f);
-    }
-    aabbs.emplace_back(light);
+    light.normalMatrix = glm::mat3(glm::transpose(glm::inverse(modelMatrix)));
     lights.emplace_back(light);
+    aabbs.emplace_back(lights.back());
 
 
-    const char fileName[] = "Output.hdr";
-    auto renderServer = PathTracing::RenderServer(12, 12, 0.75f);
-    auto data = renderServer.PathTracing(camera, aabbs, lights);
-    int w = camera.width;
-    int h = camera.height;
-    int comp = 3;
-    PrintPicture(fileName, w, h, comp, data->data(), w * comp, PrintType::HDR);
-    delete data;
-
+    PathTracing::RenderServer::PathTracing(camera, aabbs, lights, "Output", PathTracing::PrintType::HDR, 1);
 
     return 0;
 }

@@ -4,16 +4,28 @@
 
 #ifndef PATHTRACING_PATH_TRACING_H
 #define PATHTRACING_PATH_TRACING_H
+#include <chrono>
 #include <memory>
 #include <random>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <atomic>
 
 namespace PathTracing {
     class Triangle;
     class Object;
+    class ModelServer;
+
+    enum class PrintType {
+        HDR,
+        PNG,
+    };
+
+    static void PrintProgress(int processed, int total, std::chrono::steady_clock::time_point start);
+    void PrintPicture(char const* filename, int w, int h, int comp, const void* data, int stride_in_bytes, PrintType type);
+    void PrintClock(double seconds);
+    void PrintRenderProgress(int doneRows, int totalRows, const std::vector<std::atomic<int>>& threadRows, const std::vector<int>& endRowPerThread, std::chrono::steady_clock::time_point start);
 
 
     struct Pixel {
@@ -35,11 +47,17 @@ namespace PathTracing {
     struct HitMessage {
         const Object* object = nullptr;
         const Triangle* triangle = nullptr;
-        glm::vec3 hitPos{};
+        glm::vec3 hitPos = glm::vec3(FLT_MAX);
         glm::vec3 hitNormal{};
         Ray ray{};
         float t{};
     };
+
+    struct HemisphereSampleResult {
+        glm::vec3 randomDir = glm::vec3(1.0f);
+        float pdf = 1.0f;
+    };
+
 
     enum class ObjectType
     {
@@ -86,21 +104,24 @@ namespace PathTracing {
         virtual glm::vec3 GetEmission() const { return glm::vec3(0.0f); }
     };
 
+
     class AreaLight : public Object {
-        public:
-        float energy;
-        float length;
-        float width;
+    public:
+        glm::vec3 emission{glm::vec3(1.0f)};   // 发光面辐亮度 L_e
 
-        AreaLight(const float& energy, const float& length, const float& width) : energy(energy),
-            length(length), width(width) {
+        explicit AreaLight(const glm::vec3& emission = glm::vec3(1.0f)) : emission(emission) {
             objectType = ObjectType::AreaLight;
+            BuildQuad(); // 局部 XZ 平面上的单位方形，法线朝下
         }
 
-        glm::vec3 GetEmission() const override {
-            return glm::vec3(energy);
-        }
+        glm::vec3 GetEmissiveNormal() const;                       // 世界空间发光面法线
+        float     GetWorldArea() const;                            // 世界空间面积
+        glm::vec3 GetPointOnEmissiveFace(float u, float v) const;  // 均匀采样一点
 
+        glm::vec3 GetEmission() const override { return emission; }
+
+    private:
+        void BuildQuad();
     };
 
     class Camera {
@@ -120,13 +141,20 @@ namespace PathTracing {
 
     class RenderServer {
         public:
-        RenderServer(int maxDepth, int sampleCountPerPixel, float p_rr);
-        RenderServer() = default;
+        RenderServer(int maxDepth, int spp, float p_rr);
 
-        const int MAX_DEPTH = 12;
-        const int SAMPLE_COUNT_PER_PIXEL = 1024;
-        const float P_RR = 0.75f;
-        std::vector<float>* PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, std::vector<AreaLight>& lights);
+        const int MAX_DEPTH;
+        const int SPP;
+        const float P_RR;
+        static constexpr float kRayEpsilon = 1e-4f;
+        static void PathTracing(const Camera& camera,
+        const std::vector<AABB>& aabbs,
+        const std::vector<AreaLight>& lights,
+        std::string fileName,
+        PrintType printType,
+        unsigned int maxThreadsAllowed);
+        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights);
+        std::vector<float>* Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights, int startY, int endY);
 
         private:
         static Ray CastRay(const Camera& camera, int x, int y, float randomX, float randomY);
@@ -140,9 +168,9 @@ namespace PathTracing {
         static glm::vec3 InterpNormal(float b1, float b2, const Triangle& tri, const glm::mat3& normalMatrix);
         static glm::vec3 InterpHitPos(float b1, float b2, const Triangle& tri, const glm::mat4& modelMatrix);
         static glm::vec3 Get_fr(const BRDF& brdf, const glm::vec3& hitPos, const glm::vec3& hitNormal,glm::vec3 out, glm::vec3 in);
-        static bool CanReachLight(const AreaLight& light, const glm::vec3& hitPos, const glm::vec3& hitNormal, const std::vector<AABB>& aabbs, HitMessage& returnHitMessage);
-        static glm::vec3 SampleCosineHemisphere(const glm::vec3& n);
-        static glm::vec3 SampleUniformHemisphere(const glm::vec3& n);
+        static bool IsOccluded ( const Ray& ray, const std::vector<AABB>& aabbs, float maxDistance);
+        static HemisphereSampleResult SampleCosineHemisphere(const glm::vec3& n);
+        static HemisphereSampleResult SampleUniformHemisphere(const glm::vec3& n);
 
 
         static float GetCosValue(const glm::vec3& a, const glm::vec3& b) {
@@ -171,9 +199,7 @@ namespace PathTracing {
     class ModelServer {
         public:
             static std::unique_ptr<Object> GetDefaultCube();
-
-
-
+            static std::unique_ptr<std::vector<Triangle>> GetAreaLightSquad();
     };
 
 

@@ -8,44 +8,143 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "path_tracing.h"
 
+#include <atomic>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
-
-static void PrintProgress(int processed, int total, std::chrono::steady_clock::time_point start)
-{
-    // 控制刷新频率：每1%或者每64像素才刷新，避免疯狂IO
-    const int updateStep = 64;
-    if (processed % updateStep != 0 && processed != total)
-        return;
-
-    float progress = static_cast<float>(processed) / total;
-    auto now = std::chrono::steady_clock::now();
-    double elapsedSec = std::chrono::duration<double>(now - start).count();
-    double etaSec = (progress <= 0) ? 0 : elapsedSec / progress * (1 - progress);
-
-    const int barWidth = 30;
-    int filled = static_cast<int>(progress * barWidth);
-
-    std::cout << "\rProgress: "
-              << std::setw(6) << processed << " / " << std::setw(6) << total
-              << " [";
-    for (int i = 0; i < barWidth; i++)
-    {
-        std::cout << (i < filled ? "#" : " ");
-    }
-    std::cout << "] " << std::fixed << std::setprecision(1) << progress * 100.0f << "%"
-              << " Elapsed:" << std::setw(6) << elapsedSec << "s"
-              << " Remaining:" << std::setw(6) << etaSec << "s";
-    std::cout.flush();
-}
+#include <thread>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 
 namespace PathTracing {
+    static void PrintProgress(int processed, int total, std::chrono::steady_clock::time_point start)
+    {
+        // 控制刷新频率：每1%或者每64像素才刷新，避免疯狂IO
+        const int updateStep = 64;
+        if (processed % updateStep != 0 && processed != total)
+            return;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+        float progress = static_cast<float>(processed) / total;
+        auto now = std::chrono::steady_clock::now();
+        double elapsedSec = std::chrono::duration<double>(now - start).count();
+        double etaSec = (progress <= 0) ? 0 : elapsedSec / progress * (1 - progress);
+
+        const int barWidth = 30;
+        int filled = static_cast<int>(progress * barWidth);
+
+        std::cout << "\rProgress: "
+                  << std::setw(6) << processed << " / " << std::setw(6) << total
+                  << " [";
+        for (int i = 0; i < barWidth; i++)
+        {
+            std::cout << (i < filled ? "#" : " ");
+        }
+        std::cout << "] " << std::fixed << std::setprecision(1) << progress * 100.0f << "%"
+                  << " Elapsed:" << std::setw(6) << elapsedSec << "s"
+                  << " Remaining:" << std::setw(6) << etaSec << "s";
+        std::cout.flush();
+    }
+
+
+    void PrintPicture(char const* filename, int w, int h, int comp, const void* data, int stride_in_bytes, PrintType type)
+    {
+        int ok = 0;
+        if (type == PrintType::PNG)
+        {
+            // PNG: data 是 uint8_t 字节数组，stride = 每行字节数
+            ok = stbi_write_png(
+                filename,
+                w,
+                h,
+                comp,
+                data,
+                stride_in_bytes
+            );
+        }
+        else if (type == PrintType::HDR)
+        {
+            // HDR: data 是 float数组（线性HDR，每个通道float）
+            ok = stbi_write_hdr(
+                filename,
+                w,
+                h,
+                comp,
+                static_cast<const float*>(data)
+            );
+        }
+
+        if (ok)
+        {
+            std::cout << "Saved image: " << filename << "\n";
+        }
+        else
+        {
+            std::cerr << "Failed to save image: " << filename << "\n";
+        }
+    }
+
+    // 多线程测试专用的进度输出（只做统计与打印，不参与渲染模块）
+    // 把秒数打成 HH:MM:SS
+    void PrintClock(double seconds)
+    {
+        if (seconds < 0.0)
+        {
+            std::cout << "--:--:--";
+            return;
+        }
+        const long long t = static_cast<long long>(seconds);
+        std::cout << std::setfill('0') << std::setw(2) << (t / 3600) << ':'
+                  << std::setw(2) << ((t % 3600) / 60) << ':'
+                  << std::setw(2) << (t % 60) << std::setfill(' ');
+    }
+
+    // 每次打印一行带时间戳的日志：即使 doneRows 长时间不变，时间和 threadRow 也能看出在运行
+    void PrintRenderProgress(int doneRows, int totalRows,
+                                    const std::vector<std::atomic<int>>& threadRows,
+                                    const std::vector<int>& endRowPerThread,
+                                    std::chrono::steady_clock::time_point start)
+    {
+        const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        const double rate = (doneRows > 0 && elapsed > 0.0) ? doneRows / elapsed : 0.0;   // 行/秒
+        const double eta = (rate > 0.0) ? (totalRows - doneRows) / rate : 0.0;
+
+        const std::time_t now = std::time(nullptr);
+        char ts[16] = {};
+        std::strftime(ts, sizeof(ts), "%H:%M:%S", std::localtime(&now));
+
+        std::cout << "[" << ts << "]"
+                  << " "
+                  << std::fixed << std::setprecision(1)<< (totalRows > 0 ? 100.0 * doneRows / totalRows : 0.0) << "%("
+                  << doneRows << "/" << totalRows << "rows)"
+                  << "  "
+                  << std::setprecision(2) << rate * 60.0 << " rows/min"
+                  << "  "
+                  << "elapsed:" << std::setprecision(1) << elapsed << "s"
+                  << "  "
+                  << "eta" << " ";
+                  PrintClock(eta);
+        std::cout << std::endl;
+        std::cout << "threadRow:";
+        for (size_t t = 0; t < threadRows.size(); ++t)
+        {
+            const int row = threadRows[t].load(std::memory_order_relaxed);
+            std::cout << " ";
+            if (row < 0) std::cout << "-"; else std::cout << row;
+            if (row < endRowPerThread[t]) {
+                std::cout << "->" << endRowPerThread[t];
+            }
+        }
+        std::cout << std::endl;
+    }
+
+
+
+
+
+
+    thread_local std::mt19937 gen{ std::random_device{}() };
+    thread_local std::uniform_real_distribution<float> dist ( 0.0f , 1.0f );
 
     AABB::AABB(const Object& object) : object(&object) {
         // 获取世界空间中最小的AABB盒
@@ -85,11 +184,6 @@ namespace PathTracing {
         this->z1 = a_z1;
     }
 
-
-
-
-
-
     void Object::GetBasis(glm::vec3& right, glm::vec3& up, glm::vec3& backward) const {
         right = glm::vec3(modelMatrix[0]);
         up = glm::vec3(modelMatrix[1]);
@@ -111,27 +205,146 @@ namespace PathTracing {
     }
 
 
+    void AreaLight::BuildQuad() {
+        const auto tri = ModelServer::GetAreaLightSquad();
+        triangles = *tri;
+    }
 
-    RenderServer::RenderServer(int maxDepth, int sampleCountPerPixel, float p_rr) : MAX_DEPTH(maxDepth), SAMPLE_COUNT_PER_PIXEL(sampleCountPerPixel), P_RR(p_rr) {
+    glm::vec3 AreaLight::GetEmissiveNormal() const {
+        return glm::normalize(normalMatrix * glm::vec3(0.0f, -1.0f, 0.0f));
+    }
 
+    float AreaLight::GetWorldArea() const {
+        glm::vec3 right, up, backward;
+        GetBasis(right, up, backward);                      // right=col0, up=col1, backward=col2
+        return glm::length(glm::cross(right, backward));    // = 1.30 × 1.05
+    }
+
+    glm::vec3 AreaLight::GetPointOnEmissiveFace(float u, float v) const {
+        glm::vec3 right, up, backward;
+        GetBasis(right, up, backward);
+        // 局部方形跨 ±0.5，modelMatrix 的列已含缩放 → 直接乘 (u-0.5) 就是世界空间半宽
+        return GetWorldPos() + right * (u - 0.5f) + backward * (v - 0.5f);
+        // 变成 quad 后不再需要 -up*0.5 那种"移到盒底"的偏移
     }
 
 
-    std::vector<float>* RenderServer::PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, std::vector<AreaLight>& lights) {
+
+    RenderServer::RenderServer(int maxDepth, int spp, float p_rr) : MAX_DEPTH(maxDepth), SPP(spp), P_RR(p_rr) {
+
+    }
+
+    void RenderServer::PathTracing(const Camera& camera,
+        const std::vector<AABB>& aabbs,
+        const std::vector<AreaLight>& lights,
+        std::string fileName,
+        PrintType printType,
+        unsigned int maxThreadsAllowed
+        ) {
+        switch (printType) {
+            case PrintType::HDR:
+                fileName += ".hdr";
+                break;
+            case PrintType::PNG:
+                fileName += ".png";
+        }
+        const int w = camera.width;
+        const int h = camera.height;
+        const int comp = 3;
+
+        // 线程数：硬件并发，至少 1
+        const int threadCount = static_cast<int>(std::max(1u, std::min(maxThreadsAllowed, std::thread::hardware_concurrency())));
+        const int rowsPerThread = (h + threadCount - 1) / threadCount; // 向上取整
+
+        // 每个线程的结果缓冲
+        std::vector<std::unique_ptr<std::vector<float>>> partials(threadCount);
+
+        // 进度统计（只有主线程读、各线程写，用 atomic 汇总）
+        std::atomic<int> doneRows{0}; // 完成的行数
+        std::atomic<int> finishedThreads{0}; // 完成的线程数
+        std::vector<std::atomic<int>> threadRows(threadCount); // 各线程当前渲染到第几行（-1 = 未开始）
+        std::vector<int> endRowPerThread(threadCount); // 每个线程需要计算到的最终行数
+        for (auto& row : threadRows) row.store(-1, std::memory_order_relaxed);
+        const auto renderStart = std::chrono::steady_clock::now();
+
+        // 启动线程
+        std::vector<std::thread> workers;
+        workers.reserve(threadCount);
+
+        for (int t = 0; t < threadCount; ++t) {
+            const int y0 = t * rowsPerThread;
+            const int y1 = std::min(y0 + rowsPerThread, h);
+            if (y0 >= y1) break; // 开始行超过渲染最大行 该线程无效
+            endRowPerThread[t] = y1;
+
+            workers.emplace_back([&, t, y0, y1]() {
+                // 每个线程独立 RenderServer，避免随机数 gen 竞争
+                auto rs = PathTracing::RenderServer(30, 1, 0.9f);
+                auto buffer = std::make_unique<std::vector<float>>();
+                buffer->reserve(static_cast<size_t>(y1 - y0) * w * comp);
+
+                // 逐行渲染：每完成一行就上报一次，进度粒度最细
+                for (int y = y0; y < y1; ++y) {
+                    threadRows[t].store(y, std::memory_order_relaxed);
+                    auto part = std::unique_ptr<std::vector<float>>(
+                        rs.Tracing(camera, aabbs, lights, y, y + 1));
+                    buffer->insert(buffer->end(), part->begin(), part->end());
+                    doneRows.fetch_add(1, std::memory_order_relaxed);
+                }
+                threadRows[t].store(y1, std::memory_order_relaxed);
+
+                partials[t] = std::move(buffer);
+                finishedThreads.fetch_add(1, std::memory_order_relaxed);
+            });
+        }
+
+        // 主线程定时打印进度：每 5 秒一行（带时间戳），保证任何时候都能看出它还在跑
+        auto nextReport = renderStart;
+        while (finishedThreads.load(std::memory_order_relaxed) < static_cast<int>(workers.size())) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            if (std::chrono::steady_clock::now() >= nextReport) {
+                PrintRenderProgress(doneRows.load(std::memory_order_relaxed), h, threadRows, endRowPerThread, renderStart);
+                nextReport += std::chrono::seconds(5);
+            }
+        }
+        PrintRenderProgress(h, h, threadRows, endRowPerThread, renderStart);
+
+        // 等待所有线程完成
+        for (auto& th : workers) th.join();
+
+        // 合并到主缓冲
+        auto data = std::make_unique<std::vector<float>>(
+            static_cast<size_t>(w) * h * comp, 0.0f);
+
+        for (int t = 0; t < threadCount; ++t) {
+            const int y0 = t * rowsPerThread;
+            const int y1 = std::min(y0 + rowsPerThread, h);
+            if (y0 >= y1 || !partials[t]) continue; // 超过渲染行数或者访问到空指针 continue
+
+            const size_t offset = static_cast<size_t>(y0) * w * comp;
+            std::copy(partials[t]->begin(), partials[t]->end(),
+                      data->begin() + offset);
+        }
+
+        // 保存
+        PrintPicture(fileName.c_str(), w, h, comp, data->data(), w * comp, PathTracing::PrintType::HDR);
+    }
+
+    std::vector<float>* RenderServer::Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights) {
         auto data = new std::vector<float>();
         auto startTime = std::chrono::steady_clock::now();
         auto totalPixel = camera.width * camera.height;
         auto processed = 0;
         for ( int y = 0 ; y < camera.height; ++y) {
             for ( int x = 0 ; x < camera.width; ++x) {
-                float a = 1.0f / static_cast<float>(SAMPLE_COUNT_PER_PIXEL);
+                float a = 1.0f / static_cast<float>(SPP);
                 auto pixel = glm::vec3(0.0f);
-                for (int i = 0; i < SAMPLE_COUNT_PER_PIXEL; ++i) {
+                for (int i = 0; i < SPP; ++i) {
                     auto randomX = dist(gen);
                     auto randomY = dist(gen);
                     auto ray = CastRay(camera, x, y, randomX, randomY);
                     auto hitMessage = RayTest(ray, aabbs);
-                    auto result = Shade(hitMessage, aabbs, lights, 0);
+                    auto result = Shade(hitMessage, aabbs, lights, 1);
                     pixel += result * a;
                 }
 
@@ -145,6 +358,43 @@ namespace PathTracing {
         return data;
     }
 
+
+    std::vector<float>* RenderServer::Tracing(const Camera& camera,
+                                              const std::vector<AABB>& aabbs,
+                                              const std::vector<AreaLight>& lights,
+                                              int startY, int endY) {
+        // 边界保护
+        startY = std::max(0, startY);
+        endY = std::min(endY, camera.height);
+        if (startY >= endY) return new std::vector<float>();
+
+        auto data = new std::vector<float>();
+        const int totalPixel = camera.width * (endY - startY);
+
+
+        // 预分配，避免 push_back 反复扩容
+        data->reserve(static_cast<size_t>(totalPixel) * 3);
+
+        for (int y = startY; y < endY; ++y) {
+            for (int x = 0; x < camera.width; ++x) {
+                float a = 1.0f / static_cast<float>(SPP);
+                auto pixel = glm::vec3(0.0f);
+                for (int i = 0; i < SPP; ++i) {
+                    auto randomX = dist(gen);
+                    auto randomY = dist(gen);
+                    auto ray = CastRay(camera, x, y, randomX, randomY);
+                    auto hitMessage = RayTest(ray, aabbs);
+                    auto result = Shade(hitMessage, aabbs, lights, 1);
+                    pixel += result * a;
+                }
+
+                data->push_back(pixel.x);
+                data->push_back(pixel.y);
+                data->push_back(pixel.z);
+            }
+        }
+        return data;
+    }
 
     /**
      *
@@ -313,44 +563,69 @@ namespace PathTracing {
         if (depth >= MAX_DEPTH) return glm::vec3(0.0f);
         if (!hitMessage.triangle) return glm::vec3(0.0f);
 
-        const float kEps = 1e-4f;
 
-
-
+        // 自发光
         glm::vec3 L_e(0.0f);
         if (hitMessage.object && hitMessage.object->objectType == ObjectType::AreaLight) {
-            L_e = hitMessage.object->GetEmission();
+            // 单面光源: 只有打到发光面才有能量
+            if (glm::dot(hitMessage.ray.direction, hitMessage.hitNormal) < 0.0f) {
+                return hitMessage.object-> GetEmission ();
+            }
             return L_e;
         }
 
         auto L_dir = glm::vec3(0.0f);
         auto L_indir = glm::vec3(0.0f);
+        // 对光源
         for (const AreaLight& light : lights) {
-            HitMessage lightHitMessage{};
-            if (CanReachLight(light, hitMessage.hitPos, hitMessage.hitNormal, aabbs, lightHitMessage)) {
-                float L_i = light.energy;
-                glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, lightHitMessage.hitPos - hitMessage.hitPos, -hitMessage.ray.direction);
-                float area = light.length * light.width;
-                float pdfLight = 1.0f / area;
-                float cosA = glm::max(0.0f, GetCosValue(hitMessage.hitNormal, lightHitMessage.hitPos - hitMessage.hitPos));
-                float cosB =  glm::max(0.0f, GetCosValue(lightHitMessage.hitNormal, hitMessage.hitPos - lightHitMessage.hitPos));
-                if (cosA <= 0.0f || cosB <= 0.0f) continue;
-                float distance = glm::length(hitMessage.hitPos - lightHitMessage.hitPos);
-                L_dir += L_i * f_r * cosA * cosB / (distance * distance) / pdfLight;
-            }
+            // (1) 发光面上均匀采一点
+            const glm::vec3 lightPos = light.GetPointOnEmissiveFace(dist(gen), dist(gen));
+            const glm::vec3 toLight  = lightPos - hitMessage.hitPos;
+            const float distance     = glm::length(toLight);
+            const glm::vec3 wi       = toLight / distance;
+
+            // (2) 两侧余弦：cosB 用光源定义的发光面法线，而不是"刚好被打中的那个面"的法线
+            const float cosA = glm::max(0.0f, glm::dot(hitMessage.hitNormal, wi));
+            const float cosB = glm::max(0.0f, glm::dot(light.GetEmissiveNormal(), -wi));
+            if (cosA <= 0.0f || cosB <= 0.0f) continue;
+
+            // (3) 可见性
+            const Ray shadowRay = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, wi);
+            if (IsOccluded(shadowRay, aabbs, distance)) continue;
+
+            // (4) 面积采样的估计量
+            const glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos,
+                                         hitMessage.hitNormal, wi, -hitMessage.ray.direction);
+            const float pdfArea = 1.0f / light.GetWorldArea();
+            L_dir += light.emission * f_r * cosA * cosB / (distance * distance) / pdfArea;
         }
 
-        float random = dist(gen);
-        if (P_RR < random) L_indir = glm::vec3(0.0f);
+        // 对一般物体
+        if (depth > 2) {
+            float random = dist(gen);
+            if (P_RR < random) L_indir = glm::vec3(0.0f);
+            else {
+                auto sampleResult = SampleCosineHemisphere(hitMessage.hitNormal);
+                Ray ray = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, sampleResult.randomDir);
+                auto newHitMessage = RayTest(ray, aabbs); // 反射光线命中信息
+                if (newHitMessage.triangle && newHitMessage.object && newHitMessage.object->objectType != ObjectType::AreaLight) {
+                    glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, sampleResult.randomDir, -hitMessage.ray.direction);
+                    float pdf = sampleResult.pdf;
+                    float cosA = glm::max(0.0f, GetCosValue(hitMessage.hitNormal, sampleResult.randomDir));
+                    L_indir = Shade(newHitMessage, aabbs, lights, depth + 1) * f_r * cosA / pdf / P_RR;
+                }
+            }
+
+        }
         else {
-            glm::vec3 randomDir = SampleUniformHemisphere(hitMessage.hitNormal);
-            Ray ray = CastRay(hitMessage.hitPos + kEps * hitMessage.hitNormal, randomDir);
+            auto sampleResult = SampleCosineHemisphere(hitMessage.hitNormal);
+            Ray ray = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, sampleResult.randomDir);
             auto newHitMessage = RayTest(ray, aabbs); // 反射光线命中信息
             if (newHitMessage.triangle && newHitMessage.object && newHitMessage.object->objectType != ObjectType::AreaLight) {
-                glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, randomDir, -hitMessage.ray.direction);
-                float pdf = 1.0f / (glm::pi<float>() * 2.0f);
-                float cosA = glm::max(0.0f, GetCosValue(hitMessage.hitNormal, randomDir));
-                L_indir = Shade(newHitMessage, aabbs, lights, depth + 1) * f_r * cosA / pdf / P_RR;
+                glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, sampleResult.randomDir, -hitMessage.ray.direction);
+                float pdf = sampleResult.pdf;
+                float cosA = glm::max(0.0f, GetCosValue(hitMessage.hitNormal, sampleResult.randomDir));
+                L_indir = Shade(newHitMessage, aabbs, lights, depth + 1) * f_r * cosA / pdf;
             }
         }
 
@@ -449,7 +724,7 @@ namespace PathTracing {
 
 
     /**
-     *
+     * 获取BRDF
      * @param brdf
      * @param hitPos
      * @param hitNormal
@@ -461,7 +736,7 @@ namespace PathTracing {
         out = glm::normalize(out);
         in = glm::normalize(in);
 
-        float kd = 1.0f - brdf.metallicity;
+
         glm::vec3 f_Lambert = brdf.albedo / glm::pi<glm::vec3>();
         glm::vec3 f_CookTorrance{};
 
@@ -470,33 +745,27 @@ namespace PathTracing {
         auto L = in; // L 交点→光源 in
         auto H = glm::normalize(L + V); // H 半向量
         float D = BRDF_D_GGX(glm::dot(N, H), brdf.roughness);
-        glm::vec3 F = BRDF_F_Fresnel_Schlick(glm::dot(V, H), brdf.albedo);
+        // 计算正确的F0 垂直入射时的菲涅尔反射率
+        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), // 电介质的 F0
+                                brdf.albedo,            // 金属的 F0
+                                brdf.metallicity);      // 插值权重
+        glm::vec3 F = BRDF_F_Fresnel_Schlick(glm::dot(V, H), F0);
         float G = BRDF_G_Smith(glm::dot(N, V), glm::dot(N, L), brdf.roughness);
 
         f_CookTorrance = D * F * G / (4 * (glm::dot(V, N) * (glm::dot(L, N))));
 
+        // 扣除 镜面反射的能量 + 金属的漫反射
+        // 1 - F: 透过表面进入介质的能量 漫反射可用能量
+        glm::vec3 kd = (glm::vec3(1.0f) - F) * (1.0f - brdf.metallicity);
         return kd * f_Lambert + f_CookTorrance;
     }
 
-    /**
-     * 判断物体与光源之间有没有遮挡 返回本次命中信息
-     * @param light
-     * @param hitPos
-     * @param aabbs
-     * @param returnHitMessage
-     * @return
-     */
-    bool RenderServer::CanReachLight(const AreaLight& light, const glm::vec3& hitPos, const glm::vec3& hitNormal, const std::vector<AABB>& aabbs, HitMessage& returnHitMessage) {
-        const float kEps = 1e-4f;
-        glm::vec3 dir = glm::normalize(light.GetWorldPos() - hitPos);
-        Ray ray = CastRay(hitPos + kEps * hitNormal, dir);
-        auto hitMessage = RayTest(ray, aabbs);
-        auto lightHitMessage = RayTest(ray, light);
-        if (glm::abs(hitMessage.t - lightHitMessage.t) <= 0.01f) {
-            returnHitMessage = lightHitMessage;
-            return true;
-        }
-        return false;
+
+    bool RenderServer::IsOccluded(const Ray& ray, const std::vector<AABB>& aabbs, float maxDistance) {
+        const HitMessage blocker = RayTest(ray, aabbs); // aabbs 里含光源自身
+        if (!blocker.triangle) return false; // 畅通
+        // 射线正指向发光面上一点 → 命中光源自身时 t ≈ maxDistance，不算遮挡
+        return blocker.t < maxDistance - 0.001f;
     }
 
 
@@ -505,7 +774,7 @@ namespace PathTracing {
      * @param n
      * @return
      */
-    glm::vec3 RenderServer::SampleCosineHemisphere(const glm::vec3& n) {
+    HemisphereSampleResult RenderServer::SampleCosineHemisphere(const glm::vec3& n) {
         float r1 = dist(gen);
         float r2 = dist(gen);
 
@@ -524,7 +793,10 @@ namespace PathTracing {
         glm::vec3 u = glm::normalize(glm::cross(a, w));
         glm::vec3 v = glm::cross(w, u);
 
-        return glm::normalize(localDir.x * u + localDir.y * v + localDir.z * w);
+        HemisphereSampleResult result;
+        result.randomDir = glm::normalize(localDir.x * u + localDir.y * v + localDir.z * w);
+        result.pdf = GetCosValue(result.randomDir, n) / glm::pi<float>();
+        return result;
     }
 
     /**
@@ -532,7 +804,7 @@ namespace PathTracing {
      * @param n
      * @return
      */
-    glm::vec3 RenderServer::SampleUniformHemisphere(const glm::vec3& n) {
+    HemisphereSampleResult RenderServer::SampleUniformHemisphere(const glm::vec3& n) {
         float r1 = dist(gen);
         float r2 = dist(gen);
 
@@ -552,8 +824,10 @@ namespace PathTracing {
         glm::vec3 u = glm::normalize(glm::cross(a, w));
         glm::vec3 v = glm::cross(w, u);
 
-
-        return glm::normalize(localDir.x * u + localDir.y * v + localDir.z * w);
+        HemisphereSampleResult result;
+        result.randomDir = glm::normalize(localDir.x * u + localDir.y * v + localDir.z * w);
+        result.pdf = 1.0f / (2 * glm::pi<float>());
+        return result;
     }
 
 
@@ -707,7 +981,28 @@ namespace PathTracing {
         return std::unique_ptr<Object>(cube);
     }
 
+    std::unique_ptr<std::vector<Triangle>> ModelServer::GetAreaLightSquad() {
+        const glm::vec3 n(0.0f, -1.0f, 0.0f);
+        const BRDF brdf{ glm::vec3(1.0f), 1.0f, 0.0f };
+        auto squad = new std::vector<Triangle>();
+        Triangle a{};
+        a.t0 = glm::vec3(-0.5f, 0.0f, -0.5f);
+        a.t1 = glm::vec3(-0.5f, 0.0f,  0.5f);
+        a.t2 = glm::vec3( 0.5f, 0.0f,  0.5f);
+        a.n0 = a.n1 = a.n2 = n;
+        a.brdf = brdf;
 
+        Triangle b{};
+        b.t0 = glm::vec3(-0.5f, 0.0f, -0.5f);
+        b.t1 = glm::vec3( 0.5f, 0.0f,  0.5f);
+        b.t2 = glm::vec3( 0.5f, 0.0f, -0.5f);
+        b.n0 = b.n1 = b.n2 = n;
+        b.brdf = brdf;
+
+        squad->push_back(a);
+        squad->push_back(b);
+        return std::make_unique<std::vector<Triangle>>(*squad);
+    }
 
 
 
