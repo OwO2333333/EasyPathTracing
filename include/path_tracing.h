@@ -153,7 +153,7 @@ namespace PathTracing {
         public:
         std::vector<std::unique_ptr<Object>> objects;
         std::vector<AABB> aabbs;
-        std::vector<AreaLight> lights;
+        std::vector<AreaLight> lights; // 注意这里light在aabbs和lights是两份独立数据
     };
 
     class RenderServer {
@@ -164,7 +164,15 @@ namespace PathTracing {
         const int SPP;
         const float P_RR;
         static constexpr float kRayEpsilon = 1e-4f;
-        static void PathTracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights,std::string fileName,PrintType printType, unsigned int maxThreadsAllowed);
+        static void PathTracing(const Camera& camera,
+                                const std::vector<AABB>& aabbs,
+                                const std::vector<AreaLight>& lights,
+                                std::string fileName,
+                                PrintType printType,
+                                unsigned int threadsAllowed,
+                                int maxDepth,
+                                float p_rr,
+                                int spp);
 
 
         private:

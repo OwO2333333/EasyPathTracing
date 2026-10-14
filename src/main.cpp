@@ -1,5 +1,4 @@
-#include <iostream>
-#include <vector>
+#include <thread>
 #include "path_tracing.h"
 
 
@@ -12,8 +11,9 @@ int main() {
     glm::mat4 camWorld = glm::inverse(viewMatrix);
     auto camera = std::make_unique<PathTracing::Camera>(camWorld, 256, 256, 40, 0.01f, 200.0f);
     auto scene = PathTracing::ModelServer::GetCornellBox();
-
-    PathTracing::RenderServer::PathTracing(*camera, scene->aabbs, scene->lights, "Output", PathTracing::PrintType::HDR, 1);
+    auto threadAllowed = std::thread::hardware_concurrency();
+    PathTracing::RenderServer::PathTracing(*camera, scene->aabbs, scene->lights, "Output", PathTracing::PrintType::HDR,
+        threadAllowed, 30, 0.9f, 2);
 
     return 0;
 }

@@ -230,17 +230,32 @@ namespace PathTracing {
 
 
 
-    RenderServer::RenderServer(int maxDepth, int spp, float p_rr) : MAX_DEPTH(maxDepth), SPP(spp), P_RR(p_rr) {
+    RenderServer::RenderServer(const int maxDepth, int spp, float p_rr) : MAX_DEPTH(maxDepth), SPP(spp), P_RR(p_rr) {
 
     }
 
+    /**
+     *
+     * @param camera
+     * @param aabbs
+     * @param lights
+     * @param fileName 文件名
+     * @param printType 输出格式
+     * @param threadsAllowed 允许运行的线程数
+     * @param maxDepth 光线弹射的最大深度
+     * @param p_rr 光线弹射的概率(仅在弹射2次后生效)
+     * @param spp 每个像素发射多少条独立的采样光线
+     */
     void RenderServer::PathTracing(const Camera& camera,
-        const std::vector<AABB>& aabbs,
-        const std::vector<AreaLight>& lights,
-        std::string fileName,
-        PrintType printType,
-        unsigned int maxThreadsAllowed
-        ) {
+                                   const std::vector<AABB>& aabbs,
+                                   const std::vector<AreaLight>& lights,
+                                   std::string fileName,
+                                   PrintType printType,
+                                   unsigned int threadsAllowed,
+                                   const int maxDepth,
+                                   const float p_rr,
+                                   const int spp
+    ) {
         switch (printType) {
             case PrintType::HDR:
                 fileName += ".hdr";
@@ -253,7 +268,7 @@ namespace PathTracing {
         const int comp = 3;
 
         // 线程数：硬件并发，至少 1
-        const int threadCount = static_cast<int>(std::max(1u, std::min(maxThreadsAllowed, std::thread::hardware_concurrency())));
+        const int threadCount = static_cast<int>(std::max(1u, std::min(threadsAllowed, std::thread::hardware_concurrency())));
         const int rowsPerThread = (h + threadCount - 1) / threadCount; // 向上取整
 
         // 每个线程的结果缓冲
@@ -279,7 +294,7 @@ namespace PathTracing {
 
             workers.emplace_back([&, t, y0, y1]() {
                 // 每个线程独立 RenderServer，避免随机数 gen 竞争
-                auto rs = PathTracing::RenderServer(30, 1, 0.9f);
+                auto rs = RenderServer(maxDepth, spp, p_rr);
                 auto buffer = std::make_unique<std::vector<float>>();
                 buffer->reserve(static_cast<size_t>(y1 - y0) * w * comp);
 
@@ -327,7 +342,7 @@ namespace PathTracing {
         }
 
         // 保存
-        PrintPicture(fileName.c_str(), w, h, comp, data->data(), w * comp, PathTracing::PrintType::HDR);
+        PrintPicture(fileName.c_str(), w, h, comp, data->data(), w * comp, PrintType::HDR);
     }
 
     std::vector<float>* RenderServer::Tracing(const Camera& camera, const std::vector<AABB>& aabbs, const std::vector<AreaLight>& lights) {
@@ -832,9 +847,7 @@ namespace PathTracing {
 
     std::unique_ptr<Scene> ModelServer::GetCornellBox() {
 
-        auto cube = ModelServer::GetDefaultCube();
-        auto aabbs = std::make_unique<std::vector<AABB>>();
-        auto lights = std::make_unique<std::vector<AreaLight>>();
+        auto cube = GetDefaultCube();
         auto scene = std::make_unique<Scene>();
 
         auto modelMatrix = glm::mat4(1.0f);
@@ -847,7 +860,7 @@ namespace PathTracing {
         for (Triangle& tri : floor_wall->triangles) {
             tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
         }
-        aabbs->emplace_back(*floor_wall);
+        scene->aabbs.emplace_back(*floor_wall);
         scene->objects.push_back(std::move(floor_wall));
 
 
@@ -861,9 +874,8 @@ namespace PathTracing {
         for (Triangle& tri : ceil_wall->triangles) {
             tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
         }
-        aabbs->emplace_back(*ceil_wall);
+        scene->aabbs.emplace_back(*ceil_wall);
         scene->objects.push_back(std::move(ceil_wall));
-
 
         modelMatrix = glm::mat4(1.0f);
         auto back_wall = std::make_unique<Object>(*cube);
@@ -875,7 +887,7 @@ namespace PathTracing {
         for (Triangle& tri : back_wall->triangles) {
             tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
         }
-        aabbs->emplace_back(*back_wall);
+        scene->aabbs.emplace_back(*back_wall);
         scene->objects.push_back(std::move(back_wall));
 
 
@@ -889,7 +901,7 @@ namespace PathTracing {
         for (Triangle& tri : left_wall->triangles) {
             tri.brdf.albedo = glm::vec3(0.14, 0.45, 0.091);
         }
-        aabbs->emplace_back(*left_wall);
+        scene->aabbs.emplace_back(*left_wall);
         scene->objects.push_back(std::move(left_wall));
 
 
@@ -903,7 +915,7 @@ namespace PathTracing {
         for (Triangle& tri : right_wall->triangles) {
             tri.brdf.albedo = glm::vec3(0.63, 0.065, 0.05);
         }
-        aabbs->emplace_back(*right_wall);
+        scene->aabbs.emplace_back(*right_wall);
         scene->objects.push_back(std::move(right_wall));
 
 
@@ -918,7 +930,7 @@ namespace PathTracing {
         for (Triangle& tri : big_cube->triangles) {
             tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
         }
-        aabbs->emplace_back(*big_cube);
+        scene->aabbs.emplace_back(*big_cube);
         scene->objects.push_back(std::move(big_cube));
 
 
@@ -933,7 +945,7 @@ namespace PathTracing {
         for (Triangle& tri : small_cube->triangles) {
             tri.brdf.albedo = glm::vec3(0.725, 0.71, 0.68);
         }
-        aabbs->emplace_back(*small_cube);
+        scene->aabbs.emplace_back(*small_cube);
         scene->objects.push_back(std::move(small_cube));
 
 
@@ -945,15 +957,14 @@ namespace PathTracing {
         light->modelMatrix = modelMatrix;
         light->invModelMatrix = glm::inverse(modelMatrix);
         light->normalMatrix = glm::mat3(glm::transpose(glm::inverse(modelMatrix)));
-        lights->emplace_back(*light);
-        aabbs->emplace_back(lights->back());
+        scene->aabbs.emplace_back(*light);
+        scene->lights.emplace_back(*light);
         scene->objects.push_back(std::move(light));
 
 
-        scene->aabbs = *aabbs;
-        scene->lights = *lights;
         return scene;
     }
+
     std::unique_ptr<Object> ModelServer::GetDefaultCube() {
         auto triangles = std::vector<Triangle>();
         auto brdf = BRDF {
