@@ -20,7 +20,7 @@
 namespace PathTracing {
     static void PrintProgress(int processed, int total, std::chrono::steady_clock::time_point start)
     {
-        // ¿ØÖÆË¢ĞÂÆµÂÊ£ºÃ¿1%»òÕßÃ¿64ÏñËØ²ÅË¢ĞÂ£¬±ÜÃâ·è¿ñIO
+        // æ§åˆ¶åˆ·æ–°é¢‘ç‡ï¼šæ¯1%æˆ–è€…æ¯64åƒç´ æ‰åˆ·æ–°ï¼Œé¿å…ç–¯ç‹‚IO
         const int updateStep = 64;
         if (processed % updateStep != 0 && processed != total)
             return;
@@ -52,7 +52,7 @@ namespace PathTracing {
         int ok = 0;
         if (type == PrintType::PNG)
         {
-            // PNG: data ÊÇ uint8_t ×Ö½ÚÊı×é£¬stride = Ã¿ĞĞ×Ö½ÚÊı
+            // PNG: data æ˜¯ uint8_t å­—èŠ‚æ•°ç»„ï¼Œstride = æ¯è¡Œå­—èŠ‚æ•°
             ok = stbi_write_png(
                 filename,
                 w,
@@ -64,7 +64,7 @@ namespace PathTracing {
         }
         else if (type == PrintType::HDR)
         {
-            // HDR: data ÊÇ floatÊı×é£¨ÏßĞÔHDR£¬Ã¿¸öÍ¨µÀfloat£©
+            // HDR: data æ˜¯ floatæ•°ç»„ï¼ˆçº¿æ€§HDRï¼Œæ¯ä¸ªé€šé“floatï¼‰
             ok = stbi_write_hdr(
                 filename,
                 w,
@@ -84,8 +84,8 @@ namespace PathTracing {
         }
     }
 
-    // ¶àÏß³Ì²âÊÔ×¨ÓÃµÄ½ø¶ÈÊä³ö£¨Ö»×öÍ³¼ÆÓë´òÓ¡£¬²»²ÎÓëäÖÈ¾Ä£¿é£©
-    // °ÑÃëÊı´ò³É HH:MM:SS
+    // å¤šçº¿ç¨‹æµ‹è¯•ä¸“ç”¨çš„è¿›åº¦è¾“å‡ºï¼ˆåªåšç»Ÿè®¡ä¸æ‰“å°ï¼Œä¸å‚ä¸æ¸²æŸ“æ¨¡å—ï¼‰
+    // æŠŠç§’æ•°æ‰“æˆ HH:MM:SS
     void PrintClock(double seconds)
     {
         if (seconds < 0.0)
@@ -99,14 +99,14 @@ namespace PathTracing {
                   << std::setw(2) << (t % 60) << std::setfill(' ');
     }
 
-    // Ã¿´Î´òÓ¡Ò»ĞĞ´øÊ±¼ä´ÁµÄÈÕÖ¾£º¼´Ê¹ doneRows ³¤Ê±¼ä²»±ä£¬Ê±¼äºÍ threadRow Ò²ÄÜ¿´³öÔÚÔËĞĞ
+    // æ¯æ¬¡æ‰“å°ä¸€è¡Œå¸¦æ—¶é—´æˆ³çš„æ—¥å¿—ï¼šå³ä½¿ doneRows é•¿æ—¶é—´ä¸å˜ï¼Œæ—¶é—´å’Œ threadRow ä¹Ÿèƒ½çœ‹å‡ºåœ¨è¿è¡Œ
     void PrintRenderProgress(int doneRows, int totalRows,
                                     const std::vector<std::atomic<int>>& threadRows,
                                     const std::vector<int>& endRowPerThread,
                                     std::chrono::steady_clock::time_point start)
     {
         const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-        const double rate = (doneRows > 0 && elapsed > 0.0) ? doneRows / elapsed : 0.0;   // ĞĞ/Ãë
+        const double rate = (doneRows > 0 && elapsed > 0.0) ? doneRows / elapsed : 0.0;   // è¡Œ/ç§’
         const double eta = (rate > 0.0) ? (totalRows - doneRows) / rate : 0.0;
 
         const std::time_t now = std::time(nullptr);
@@ -147,7 +147,7 @@ namespace PathTracing {
     thread_local std::uniform_real_distribution<float> dist ( 0.0f , 1.0f );
 
     AABB::AABB(const Object& object) : object(&object) {
-        // »ñÈ¡ÊÀ½ç¿Õ¼äÖĞ×îĞ¡µÄAABBºĞ
+        // è·å–ä¸–ç•Œç©ºé—´ä¸­æœ€å°çš„AABBç›’
         float a_x0 = FLT_MAX;
         float a_y0 = FLT_MAX;
         float a_z0 = FLT_MAX;
@@ -217,15 +217,15 @@ namespace PathTracing {
     float AreaLight::GetWorldArea() const {
         glm::vec3 right, up, backward;
         GetBasis(right, up, backward);                      // right=col0, up=col1, backward=col2
-        return glm::length(glm::cross(right, backward));    // = 1.30 ¡Á 1.05
+        return glm::length(glm::cross(right, backward));    // = 1.30 Ã— 1.05
     }
 
     glm::vec3 AreaLight::GetPointOnEmissiveFace(float u, float v) const {
         glm::vec3 right, up, backward;
         GetBasis(right, up, backward);
-        // ¾Ö²¿·½ĞÎ¿ç ¡À0.5£¬modelMatrix µÄÁĞÒÑº¬Ëõ·Å ¡ú Ö±½Ó³Ë (u-0.5) ¾ÍÊÇÊÀ½ç¿Õ¼ä°ë¿í
+        // å±€éƒ¨æ–¹å½¢è·¨ Â±0.5ï¼ŒmodelMatrix çš„åˆ—å·²å«ç¼©æ”¾ â†’ ç›´æ¥ä¹˜ (u-0.5) å°±æ˜¯ä¸–ç•Œç©ºé—´åŠå®½
         return GetWorldPos() + right * (u - 0.5f) + backward * (v - 0.5f);
-        // ±ä³É quad ºó²»ÔÙĞèÒª -up*0.5 ÄÇÖÖ"ÒÆµ½ºĞµ×"µÄÆ«ÒÆ
+        // å˜æˆ quad åä¸å†éœ€è¦ -up*0.5 é‚£ç§"ç§»åˆ°ç›’åº•"çš„åç§»
     }
 
 
@@ -239,12 +239,12 @@ namespace PathTracing {
      * @param camera
      * @param aabbs
      * @param lights
-     * @param fileName ÎÄ¼şÃû
-     * @param printType Êä³ö¸ñÊ½
-     * @param threadsAllowed ÔÊĞíÔËĞĞµÄÏß³ÌÊı
-     * @param maxDepth ¹âÏßµ¯ÉäµÄ×î´óÉî¶È
-     * @param p_rr ¹âÏßµ¯ÉäµÄ¸ÅÂÊ(½öÔÚµ¯Éä2´ÎºóÉúĞ§)
-     * @param spp Ã¿¸öÏñËØ·¢Éä¶àÉÙÌõ¶ÀÁ¢µÄ²ÉÑù¹âÏß
+     * @param fileName æ–‡ä»¶å
+     * @param printType è¾“å‡ºæ ¼å¼
+     * @param threadsAllowed å…è®¸è¿è¡Œçš„çº¿ç¨‹æ•°
+     * @param maxDepth å…‰çº¿å¼¹å°„çš„æœ€å¤§æ·±åº¦
+     * @param p_rr å…‰çº¿å¼¹å°„çš„æ¦‚ç‡(ä»…åœ¨å¼¹å°„2æ¬¡åç”Ÿæ•ˆ)
+     * @param spp æ¯ä¸ªåƒç´ å‘å°„å¤šå°‘æ¡ç‹¬ç«‹çš„é‡‡æ ·å…‰çº¿
      */
     void RenderServer::PathTracing(const Camera& camera,
                                    const std::vector<AABB>& aabbs,
@@ -267,38 +267,38 @@ namespace PathTracing {
         const int h = camera.height;
         const int comp = 3;
 
-        // Ïß³ÌÊı£ºÓ²¼ş²¢·¢£¬ÖÁÉÙ 1
+        // çº¿ç¨‹æ•°ï¼šç¡¬ä»¶å¹¶å‘ï¼Œè‡³å°‘ 1
         const int threadCount = static_cast<int>(std::max(1u, std::min(threadsAllowed, std::thread::hardware_concurrency())));
-        const int rowsPerThread = (h + threadCount - 1) / threadCount; // ÏòÉÏÈ¡Õû
+        const int rowsPerThread = (h + threadCount - 1) / threadCount; // å‘ä¸Šå–æ•´
 
-        // Ã¿¸öÏß³ÌµÄ½á¹û»º³å
+        // æ¯ä¸ªçº¿ç¨‹çš„ç»“æœç¼“å†²
         std::vector<std::unique_ptr<std::vector<float>>> partials(threadCount);
 
-        // ½ø¶ÈÍ³¼Æ£¨Ö»ÓĞÖ÷Ïß³Ì¶Á¡¢¸÷Ïß³ÌĞ´£¬ÓÃ atomic »ã×Ü£©
-        std::atomic<int> doneRows{0}; // Íê³ÉµÄĞĞÊı
-        std::atomic<int> finishedThreads{0}; // Íê³ÉµÄÏß³ÌÊı
-        std::vector<std::atomic<int>> threadRows(threadCount); // ¸÷Ïß³Ìµ±Ç°äÖÈ¾µ½µÚ¼¸ĞĞ£¨-1 = Î´¿ªÊ¼£©
-        std::vector<int> endRowPerThread(threadCount); // Ã¿¸öÏß³ÌĞèÒª¼ÆËãµ½µÄ×îÖÕĞĞÊı
+        // è¿›åº¦ç»Ÿè®¡ï¼ˆåªæœ‰ä¸»çº¿ç¨‹è¯»ã€å„çº¿ç¨‹å†™ï¼Œç”¨ atomic æ±‡æ€»ï¼‰
+        std::atomic<int> doneRows{0}; // å®Œæˆçš„è¡Œæ•°
+        std::atomic<int> finishedThreads{0}; // å®Œæˆçš„çº¿ç¨‹æ•°
+        std::vector<std::atomic<int>> threadRows(threadCount); // å„çº¿ç¨‹å½“å‰æ¸²æŸ“åˆ°ç¬¬å‡ è¡Œï¼ˆ-1 = æœªå¼€å§‹ï¼‰
+        std::vector<int> endRowPerThread(threadCount); // æ¯ä¸ªçº¿ç¨‹éœ€è¦è®¡ç®—åˆ°çš„æœ€ç»ˆè¡Œæ•°
         for (auto& row : threadRows) row.store(-1, std::memory_order_relaxed);
         const auto renderStart = std::chrono::steady_clock::now();
 
-        // Æô¶¯Ïß³Ì
+        // å¯åŠ¨çº¿ç¨‹
         std::vector<std::thread> workers;
         workers.reserve(threadCount);
 
         for (int t = 0; t < threadCount; ++t) {
             const int y0 = t * rowsPerThread;
             const int y1 = std::min(y0 + rowsPerThread, h);
-            if (y0 >= y1) break; // ¿ªÊ¼ĞĞ³¬¹ıäÖÈ¾×î´óĞĞ ¸ÃÏß³ÌÎŞĞ§
+            if (y0 >= y1) break; // å¼€å§‹è¡Œè¶…è¿‡æ¸²æŸ“æœ€å¤§è¡Œ è¯¥çº¿ç¨‹æ— æ•ˆ
             endRowPerThread[t] = y1;
 
             workers.emplace_back([&, t, y0, y1]() {
-                // Ã¿¸öÏß³Ì¶ÀÁ¢ RenderServer£¬±ÜÃâËæ»úÊı gen ¾ºÕù
+                // æ¯ä¸ªçº¿ç¨‹ç‹¬ç«‹ RenderServerï¼Œé¿å…éšæœºæ•° gen ç«äº‰
                 auto rs = RenderServer(maxDepth, spp, p_rr);
                 auto buffer = std::make_unique<std::vector<float>>();
                 buffer->reserve(static_cast<size_t>(y1 - y0) * w * comp);
 
-                // ÖğĞĞäÖÈ¾£ºÃ¿Íê³ÉÒ»ĞĞ¾ÍÉÏ±¨Ò»´Î£¬½ø¶ÈÁ£¶È×îÏ¸
+                // é€è¡Œæ¸²æŸ“ï¼šæ¯å®Œæˆä¸€è¡Œå°±ä¸ŠæŠ¥ä¸€æ¬¡ï¼Œè¿›åº¦ç²’åº¦æœ€ç»†
                 for (int y = y0; y < y1; ++y) {
                     threadRows[t].store(y, std::memory_order_relaxed);
                     auto part = std::unique_ptr<std::vector<float>>(
@@ -313,7 +313,7 @@ namespace PathTracing {
             });
         }
 
-        // Ö÷Ïß³Ì¶¨Ê±´òÓ¡½ø¶È£ºÃ¿ 5 ÃëÒ»ĞĞ£¨´øÊ±¼ä´Á£©£¬±£Ö¤ÈÎºÎÊ±ºò¶¼ÄÜ¿´³öËü»¹ÔÚÅÜ
+        // ä¸»çº¿ç¨‹å®šæ—¶æ‰“å°è¿›åº¦ï¼šæ¯ 5 ç§’ä¸€è¡Œï¼ˆå¸¦æ—¶é—´æˆ³ï¼‰ï¼Œä¿è¯ä»»ä½•æ—¶å€™éƒ½èƒ½çœ‹å‡ºå®ƒè¿˜åœ¨è·‘
         auto nextReport = renderStart;
         while (finishedThreads.load(std::memory_order_relaxed) < static_cast<int>(workers.size())) {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
@@ -324,24 +324,24 @@ namespace PathTracing {
         }
         PrintRenderProgress(h, h, threadRows, endRowPerThread, renderStart);
 
-        // µÈ´ıËùÓĞÏß³ÌÍê³É
+        // ç­‰å¾…æ‰€æœ‰çº¿ç¨‹å®Œæˆ
         for (auto& th : workers) th.join();
 
-        // ºÏ²¢µ½Ö÷»º³å
+        // åˆå¹¶åˆ°ä¸»ç¼“å†²
         auto data = std::make_unique<std::vector<float>>(
             static_cast<size_t>(w) * h * comp, 0.0f);
 
         for (int t = 0; t < threadCount; ++t) {
             const int y0 = t * rowsPerThread;
             const int y1 = std::min(y0 + rowsPerThread, h);
-            if (y0 >= y1 || !partials[t]) continue; // ³¬¹ıäÖÈ¾ĞĞÊı»òÕß·ÃÎÊµ½¿ÕÖ¸Õë continue
+            if (y0 >= y1 || !partials[t]) continue; // è¶…è¿‡æ¸²æŸ“è¡Œæ•°æˆ–è€…è®¿é—®åˆ°ç©ºæŒ‡é’ˆ continue
 
             const size_t offset = static_cast<size_t>(y0) * w * comp;
             std::copy(partials[t]->begin(), partials[t]->end(),
                       data->begin() + offset);
         }
 
-        // ±£´æ
+        // ä¿å­˜
         PrintPicture(fileName.c_str(), w, h, comp, data->data(), w * comp, PrintType::HDR);
     }
 
@@ -378,7 +378,7 @@ namespace PathTracing {
                                               const std::vector<AABB>& aabbs,
                                               const std::vector<AreaLight>& lights,
                                               int startY, int endY) {
-        // ±ß½ç±£»¤
+        // è¾¹ç•Œä¿æŠ¤
         startY = std::max(0, startY);
         endY = std::min(endY, camera.height);
         if (startY >= endY) return new std::vector<float>();
@@ -387,7 +387,7 @@ namespace PathTracing {
         const int totalPixel = camera.width * (endY - startY);
 
 
-        // Ô¤·ÖÅä£¬±ÜÃâ push_back ·´¸´À©Èİ
+        // é¢„åˆ†é…ï¼Œé¿å… push_back åå¤æ‰©å®¹
         data->reserve(static_cast<size_t>(totalPixel) * 3);
 
         for (int y = startY; y < endY; ++y) {
@@ -414,10 +414,10 @@ namespace PathTracing {
     /**
      *
      * @param camera
-     * @param x ÏñËØºá×ø±ê
-     * @param y ÏñËØ×İ×ø±ê
-     * @param randomX ·¶Î§[0, 1]µÄËæ»úÆ«ÒÆ
-     * @param randomY ·¶Î§[0, 1]µÄËæ»úÆ«ÒÆ
+     * @param x åƒç´ æ¨ªåæ ‡
+     * @param y åƒç´ çºµåæ ‡
+     * @param randomX èŒƒå›´[0, 1]çš„éšæœºåç§»
+     * @param randomY èŒƒå›´[0, 1]çš„éšæœºåç§»
      * @return
      */
     Ray RenderServer::CastRay(const Camera& camera, int x, int y, float randomX, float randomY) {
@@ -579,10 +579,10 @@ namespace PathTracing {
         if (!hitMessage.triangle) return glm::vec3(0.0f);
 
 
-        // ×Ô·¢¹â
+        // è‡ªå‘å…‰
         glm::vec3 L_e(0.0f);
         if (hitMessage.object && hitMessage.object->objectType == ObjectType::AreaLight) {
-            // µ¥Ãæ¹âÔ´: Ö»ÓĞ´òµ½·¢¹âÃæ²ÅÓĞÄÜÁ¿
+            // å•é¢å…‰æº: åªæœ‰æ‰“åˆ°å‘å…‰é¢æ‰æœ‰èƒ½é‡
             if (glm::dot(hitMessage.ray.direction, hitMessage.hitNormal) < 0.0f) {
                 return hitMessage.object-> GetEmission ();
             }
@@ -591,38 +591,38 @@ namespace PathTracing {
 
         auto L_dir = glm::vec3(0.0f);
         auto L_indir = glm::vec3(0.0f);
-        // ¶Ô¹âÔ´
+        // å¯¹å…‰æº
         for (const AreaLight& light : lights) {
-            // (1) ·¢¹âÃæÉÏ¾ùÔÈ²ÉÒ»µã
+            // (1) å‘å…‰é¢ä¸Šå‡åŒ€é‡‡ä¸€ç‚¹
             const glm::vec3 lightPos = light.GetPointOnEmissiveFace(dist(gen), dist(gen));
             const glm::vec3 toLight  = lightPos - hitMessage.hitPos;
             const float distance     = glm::length(toLight);
             const glm::vec3 wi       = toLight / distance;
 
-            // (2) Á½²àÓàÏÒ£ºcosB ÓÃ¹âÔ´¶¨ÒåµÄ·¢¹âÃæ·¨Ïß£¬¶ø²»ÊÇ"¸ÕºÃ±»´òÖĞµÄÄÇ¸öÃæ"µÄ·¨Ïß
+            // (2) ä¸¤ä¾§ä½™å¼¦ï¼šcosB ç”¨å…‰æºå®šä¹‰çš„å‘å…‰é¢æ³•çº¿ï¼Œè€Œä¸æ˜¯"åˆšå¥½è¢«æ‰“ä¸­çš„é‚£ä¸ªé¢"çš„æ³•çº¿
             const float cosA = glm::max(0.0f, glm::dot(hitMessage.hitNormal, wi));
             const float cosB = glm::max(0.0f, glm::dot(light.GetEmissiveNormal(), -wi));
             if (cosA <= 0.0f || cosB <= 0.0f) continue;
 
-            // (3) ¿É¼ûĞÔ
+            // (3) å¯è§æ€§
             const Ray shadowRay = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, wi);
             if (IsOccluded(shadowRay, aabbs, distance)) continue;
 
-            // (4) Ãæ»ı²ÉÑùµÄ¹À¼ÆÁ¿
+            // (4) é¢ç§¯é‡‡æ ·çš„ä¼°è®¡é‡
             const glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos,
                                          hitMessage.hitNormal, wi, -hitMessage.ray.direction);
             const float pdfArea = 1.0f / light.GetWorldArea();
             L_dir += light.emission * f_r * cosA * cosB / (distance * distance) / pdfArea;
         }
 
-        // ¶ÔÒ»°ãÎïÌå
+        // å¯¹ä¸€èˆ¬ç‰©ä½“
         if (depth > 2) {
             float random = dist(gen);
             if (P_RR < random) L_indir = glm::vec3(0.0f);
             else {
                 auto sampleResult = SampleCosineHemisphere(hitMessage.hitNormal);
                 Ray ray = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, sampleResult.randomDir);
-                auto newHitMessage = RayTest(ray, aabbs); // ·´Éä¹âÏßÃüÖĞĞÅÏ¢
+                auto newHitMessage = RayTest(ray, aabbs); // åå°„å…‰çº¿å‘½ä¸­ä¿¡æ¯
                 if (newHitMessage.triangle && newHitMessage.object && newHitMessage.object->objectType != ObjectType::AreaLight) {
                     glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, sampleResult.randomDir, -hitMessage.ray.direction);
                     float pdf = sampleResult.pdf;
@@ -635,7 +635,7 @@ namespace PathTracing {
         else {
             auto sampleResult = SampleCosineHemisphere(hitMessage.hitNormal);
             Ray ray = CastRay(hitMessage.hitPos + kRayEpsilon * hitMessage.hitNormal, sampleResult.randomDir);
-            auto newHitMessage = RayTest(ray, aabbs); // ·´Éä¹âÏßÃüÖĞĞÅÏ¢
+            auto newHitMessage = RayTest(ray, aabbs); // åå°„å…‰çº¿å‘½ä¸­ä¿¡æ¯
             if (newHitMessage.triangle && newHitMessage.object && newHitMessage.object->objectType != ObjectType::AreaLight) {
                 glm::vec3 f_r = Get_fr(hitMessage.triangle->brdf, hitMessage.hitPos, hitMessage.hitNormal, sampleResult.randomDir, -hitMessage.ray.direction);
                 float pdf = sampleResult.pdf;
@@ -653,7 +653,7 @@ namespace PathTracing {
 
 
     bool RenderServer::IsIntersectionWithAABB(const Ray& ray, const AABB& aabb) {
-        // ±ê×¼ slab test£¨Öá¶ÔÆë°üÎ§ºĞÉäÏßÏà½»ÅĞ¶¨£©
+        // æ ‡å‡† slab testï¼ˆè½´å¯¹é½åŒ…å›´ç›’å°„çº¿ç›¸äº¤åˆ¤å®šï¼‰
         float minX = std::min(aabb.x0, aabb.x1);
         float maxX = std::max(aabb.x0, aabb.x1);
         float minY = std::min(aabb.y0, aabb.y1);
@@ -671,7 +671,7 @@ namespace PathTracing {
 
         for (int i = 0; i < 3; ++i) {
             if (glm::abs(dir[i]) < 1e-8f) {
-                // ÉäÏßÓë¸ÃÖáµÄ slab Æ½ĞĞ£ºÔ­µã±ØĞëÔÚ slab ÄÚ
+                // å°„çº¿ä¸è¯¥è½´çš„ slab å¹³è¡Œï¼šåŸç‚¹å¿…é¡»åœ¨ slab å†…
                 if (ori[i] < minB[i] || ori[i] > maxB[i]) return false;
             } else {
                 float invD = 1.0f / dir[i];
@@ -739,12 +739,12 @@ namespace PathTracing {
 
 
     /**
-     * »ñÈ¡BRDF
+     * è·å–BRDF
      * @param brdf
      * @param hitPos
      * @param hitNormal
-     * @param out ÈëÉä·½Ïò ´Ó±íÃæ½»µãÖ¸Ïò¹âÔ´
-     * @param in ³öÉä·½Ïò ´Ó±íÃæ½»µãÖ¸ÏòÏà»ú/¹Û²âµã
+     * @param out å…¥å°„æ–¹å‘ ä»è¡¨é¢äº¤ç‚¹æŒ‡å‘å…‰æº
+     * @param in å‡ºå°„æ–¹å‘ ä»è¡¨é¢äº¤ç‚¹æŒ‡å‘ç›¸æœº/è§‚æµ‹ç‚¹
      * @return
      */
     glm::vec3 RenderServer::Get_fr(const BRDF& brdf, const glm::vec3& hitPos, const glm::vec3& hitNormal,glm::vec3 out, glm::vec3 in) {
@@ -755,37 +755,37 @@ namespace PathTracing {
         glm::vec3 f_Lambert = brdf.albedo / glm::pi<glm::vec3>();
         glm::vec3 f_CookTorrance{};
 
-        auto N = hitNormal; // N ±íÃæ·¨Ïß
-        auto V = out; // V ½»µã¡úÏà»ú out
-        auto L = in; // L ½»µã¡ú¹âÔ´ in
-        auto H = glm::normalize(L + V); // H °ëÏòÁ¿
+        auto N = hitNormal; // N è¡¨é¢æ³•çº¿
+        auto V = out; // V äº¤ç‚¹â†’ç›¸æœº out
+        auto L = in; // L äº¤ç‚¹â†’å…‰æº in
+        auto H = glm::normalize(L + V); // H åŠå‘é‡
         float D = BRDF_D_GGX(glm::dot(N, H), brdf.roughness);
-        // ¼ÆËãÕıÈ·µÄF0 ´¹Ö±ÈëÉäÊ±µÄ·ÆÄù¶û·´ÉäÂÊ
-        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), // µç½éÖÊµÄ F0
-                                brdf.albedo,            // ½ğÊôµÄ F0
-                                brdf.metallicity);      // ²åÖµÈ¨ÖØ
+        // è®¡ç®—æ­£ç¡®çš„F0 å‚ç›´å…¥å°„æ—¶çš„è²æ¶…å°”åå°„ç‡
+        glm::vec3 F0 = glm::mix(glm::vec3(0.04f), // ç”µä»‹è´¨çš„ F0
+                                brdf.albedo,            // é‡‘å±çš„ F0
+                                brdf.metallicity);      // æ’å€¼æƒé‡
         glm::vec3 F = BRDF_F_Fresnel_Schlick(glm::dot(V, H), F0);
         float G = BRDF_G_Smith(glm::dot(N, V), glm::dot(N, L), brdf.roughness);
 
         f_CookTorrance = D * F * G / (4 * (glm::dot(V, N) * (glm::dot(L, N))));
 
-        // ¿Û³ı ¾µÃæ·´ÉäµÄÄÜÁ¿ + ½ğÊôµÄÂş·´Éä
-        // 1 - F: Í¸¹ı±íÃæ½øÈë½éÖÊµÄÄÜÁ¿ Âş·´Éä¿ÉÓÃÄÜÁ¿
+        // æ‰£é™¤ é•œé¢åå°„çš„èƒ½é‡ + é‡‘å±çš„æ¼«åå°„
+        // 1 - F: é€è¿‡è¡¨é¢è¿›å…¥ä»‹è´¨çš„èƒ½é‡ æ¼«åå°„å¯ç”¨èƒ½é‡
         glm::vec3 kd = (glm::vec3(1.0f) - F) * (1.0f - brdf.metallicity);
         return kd * f_Lambert + f_CookTorrance;
     }
 
 
     bool RenderServer::IsOccluded(const Ray& ray, const std::vector<AABB>& aabbs, float maxDistance) {
-        const HitMessage blocker = RayTest(ray, aabbs); // aabbs Àïº¬¹âÔ´×ÔÉí
-        if (!blocker.triangle) return false; // ³©Í¨
-        // ÉäÏßÕıÖ¸Ïò·¢¹âÃæÉÏÒ»µã ¡ú ÃüÖĞ¹âÔ´×ÔÉíÊ± t ¡Ö maxDistance£¬²»ËãÕÚµ²
+        const HitMessage blocker = RayTest(ray, aabbs); // aabbs é‡Œå«å…‰æºè‡ªèº«
+        if (!blocker.triangle) return false; // ç•…é€š
+        // å°„çº¿æ­£æŒ‡å‘å‘å…‰é¢ä¸Šä¸€ç‚¹ â†’ å‘½ä¸­å…‰æºè‡ªèº«æ—¶ t â‰ˆ maxDistanceï¼Œä¸ç®—é®æŒ¡
         return blocker.t < maxDistance - 0.001f;
     }
 
 
     /**
-     * ÓàÏÒ¼ÓÈ¨°ëÇò²ÉÑù
+     * ä½™å¼¦åŠ æƒåŠçƒé‡‡æ ·
      * @param n
      * @return
      */
@@ -815,7 +815,7 @@ namespace PathTracing {
     }
 
     /**
-     * ¾ùÔÈ°ëÇò²ÉÑù
+     * å‡åŒ€åŠçƒé‡‡æ ·
      * @param n
      * @return
      */
@@ -950,7 +950,7 @@ namespace PathTracing {
 
 
         modelMatrix = glm::mat4(1.0f);
-        // ¹âÔ´£ºµ¥Ãæ·¢¹â£¨Á½¸öÈı½ÇĞÎ£©£¬¾Ö²¿ XZ Æ½Ãæµ¥Î»·½ĞÎ£¬·¨Ïß³¯ÏÂ
+        // å…‰æºï¼šå•é¢å‘å…‰ï¼ˆä¸¤ä¸ªä¸‰è§’å½¢ï¼‰ï¼Œå±€éƒ¨ XZ å¹³é¢å•ä½æ–¹å½¢ï¼Œæ³•çº¿æœä¸‹
         auto light = std::make_unique<AreaLight>(glm::vec3(1, 0.9, 0.7) * 40.0f);
         modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(2.78f, 5.549f, 2.795f))
                                     * glm::scale(glm::mat4(1.0f), glm::vec3(1.30f, 1.0f, 1.05f));
@@ -972,7 +972,7 @@ namespace PathTracing {
             .roughness = 1.0f,
             .metallicity = 0.0f
         };
-        // ==================== Ç°Ãæ z = -0.5£¬·¨Ïß (0,0,-1) ====================
+        // ==================== å‰é¢ z = -0.5ï¼Œæ³•çº¿ (0,0,-1) ====================
         Triangle triFront0 = {};
         triFront0.brdf = brdf;
         triFront0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
@@ -993,7 +993,7 @@ namespace PathTracing {
         triFront1.n2 = glm::vec3(0.0f, 0.0f, -1.0f);
         triangles.push_back(triFront1);
 
-        // ==================== ºóÃæ z = +0.5£¬·¨Ïß (0,0,+1) ====================
+        // ==================== åé¢ z = +0.5ï¼Œæ³•çº¿ (0,0,+1) ====================
         Triangle triBack0 = {};
         triBack0.brdf = brdf;
         triBack0.t0 = glm::vec3(-0.5f, -0.5f,  0.5f);
@@ -1014,7 +1014,7 @@ namespace PathTracing {
         triBack1.n2 = glm::vec3(0.0f, 0.0f, 1.0f);
         triangles.push_back(triBack1);
 
-        // ==================== ÓÒÃæ x = +0.5£¬·¨Ïß (+1,0,0) ====================
+        // ==================== å³é¢ x = +0.5ï¼Œæ³•çº¿ (+1,0,0) ====================
         Triangle triRight0 = {};
         triRight0.brdf = brdf;
         triRight0.t0 = glm::vec3( 0.5f, -0.5f, -0.5f);
@@ -1035,7 +1035,7 @@ namespace PathTracing {
         triRight1.n2 = glm::vec3(1.0f, 0.0f, 0.0f);
         triangles.push_back(triRight1);
 
-        // ==================== ×óÃæ x = -0.5£¬·¨Ïß (-1,0,0) ====================
+        // ==================== å·¦é¢ x = -0.5ï¼Œæ³•çº¿ (-1,0,0) ====================
         Triangle triLeft0 = {};
         triLeft0.brdf = brdf;
         triLeft0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
@@ -1057,7 +1057,7 @@ namespace PathTracing {
         triangles.push_back(triLeft1);
 
 
-        // ==================== ¶¥Ãæ y = +0.5£¬·¨Ïß (0,+1,0) ====================
+        // ==================== é¡¶é¢ y = +0.5ï¼Œæ³•çº¿ (0,+1,0) ====================
         Triangle triTop0 = {};
         triTop0.brdf = brdf;
         triTop0.t0 = glm::vec3(-0.5f,  0.5f, -0.5f);
@@ -1079,7 +1079,7 @@ namespace PathTracing {
         triangles.push_back(triTop1);
 
 
-        // ==================== µ×Ãæ y = -0.5£¬·¨Ïß (0,-1,0) ====================
+        // ==================== åº•é¢ y = -0.5ï¼Œæ³•çº¿ (0,-1,0) ====================
         Triangle triBottom0 = {};
         triBottom0.brdf = brdf;
         triBottom0.t0 = glm::vec3(-0.5f, -0.5f, -0.5f);
